@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, Image, Dimensions } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, Image, Dimensions, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+// Metro automatycznie wybierze:
+// - MapViewComponent.native.js na iOS/Android
+// - MapViewComponent.web.js na webie
+import MapViewComponent from '../components/MapViewComponent';
 
 // Tymczasowe dane symulujące bazę (widok ze screena)
 const DUMMY_SPOTS = [
@@ -9,7 +13,7 @@ const DUMMY_SPOTS = [
     id: '1',
     name: 'Analog Coffee',
     desc: 'Cozy roastery with large tables',
-    lat: 50.0614, // Zmień na współrzędne swojego miasta
+    lat: 50.0614,
     lng: 19.9365,
     rating: 4.8,
     wifi: '120Mbps',
@@ -17,51 +21,27 @@ const DUMMY_SPOTS = [
     type: 'cafe',
     imageUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=200&auto=format&fit=crop'
   },
-  { id: '2', lat: 50.0650, lng: 19.9400, type: 'library' },
-  { id: '3', lat: 50.0580, lng: 19.9300, type: 'cafe' },
+  { id: '2', lat: 50.0650, lng: 19.9400, type: 'library', name: 'Central Library', desc: 'Quiet reading rooms', rating: 4.5, wifi: '50Mbps', outlets: 'Limited' },
+  { id: '3', lat: 50.0580, lng: 19.9300, type: 'cafe', name: 'The Grind', desc: 'Great espresso bar', rating: 4.3, wifi: '80Mbps', outlets: 'Plenty' },
 ];
 
 const FILTERS = ['Fast Wi-Fi', 'Outlets', 'Quiet', '$'];
 
 export default function MapScreen() {
-  const [selectedSpot, setSelectedSpot] = useState(DUMMY_SPOTS[0]); // Domyślnie zaznaczamy Analog Coffee jak na screenie
+  const [selectedSpot, setSelectedSpot] = useState(DUMMY_SPOTS[0]);
 
   return (
     <View style={styles.container}>
-      {/* 1. Tło: Interaktywna Mapa */}
-      <MapView 
-        style={styles.map}
-        initialRegion={{
-          latitude: 50.0614,
-          longitude: 19.9365,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
-        }}
-        onPress={() => setSelectedSpot(null)}
-        showsUserLocation={true}
-      >
-        {DUMMY_SPOTS.map(spot => {
-          const isSelected = selectedSpot?.id === spot.id;
-          return (
-            <Marker
-              key={spot.id}
-              coordinate={{ latitude: spot.lat, longitude: spot.lng }}
-              onPress={() => setSelectedSpot(spot)}
-            >
-              <View style={[styles.markerContainer, isSelected && styles.markerSelected]}>
-                <Ionicons 
-                  name={spot.type === 'cafe' ? "cafe" : "book"} 
-                  size={16} 
-                  color={isSelected ? "white" : "#1E1B4B"} 
-                />
-              </View>
-            </Marker>
-          );
-        })}
-      </MapView>
+      {/* 1. Mapa (native) lub fallback (web) — wybierane automatycznie */}
+      <MapViewComponent
+        spots={DUMMY_SPOTS}
+        selectedSpot={selectedSpot}
+        onSelectSpot={setSelectedSpot}
+        onMapPress={() => setSelectedSpot(null)}
+      />
 
       {/* 2. Górna sekcja: Szukajka i Filtry */}
-      <View style={styles.topOverlay}>
+      <View style={[styles.topOverlay, Platform.OS === 'web' && styles.topOverlayWeb]}>
         <View style={styles.searchBar}>
           <Ionicons name="locate-outline" size={24} color="#666" style={styles.searchIcon} />
           <TextInput 
@@ -89,10 +69,12 @@ export default function MapScreen() {
         </ScrollView>
       </View>
 
-      {/* 3. Dolna karta (BottomSheet) wyświetlana po zaznaczeniu miejsca */}
+      {/* 3. Dolna karta wyświetlana po zaznaczeniu miejsca */}
       {selectedSpot && selectedSpot.name && (
-        <View style={styles.bottomCard}>
-          <Image source={{ uri: selectedSpot.imageUrl }} style={styles.cardImage} />
+        <View style={[styles.bottomCard, Platform.OS === 'web' && styles.bottomCardWeb]}>
+          {selectedSpot.imageUrl && (
+            <Image source={{ uri: selectedSpot.imageUrl }} style={styles.cardImage} />
+          )}
           
           <View style={styles.cardContent}>
             <View style={styles.cardHeader}>
@@ -109,13 +91,10 @@ export default function MapScreen() {
                  <Ionicons name="power" size={14} color="#666" />
                  <Text style={styles.badgeText}>{selectedSpot.outlets}</Text>
                </View>
-               <View style={styles.badgeTransparent}>
-                 <Ionicons name="volume-high" size={14} color="#666" />
-               </View>
             </View>
           </View>
           
-          {/* Ocena naklejona na zdjęcie */}
+          {/* Ocena */}
           <View style={styles.ratingBadge}>
             <Ionicons name="star" size={12} color="#F59E0B" />
             <Text style={styles.ratingText}>{selectedSpot.rating}</Text>
@@ -128,17 +107,10 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  map: { width: Dimensions.get('window').width, height: Dimensions.get('window').height },
-  
-  // Custom Markers
-  markerContainer: {
-    backgroundColor: 'white', padding: 8, borderRadius: 20,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 4,
-  },
-  markerSelected: { backgroundColor: '#F59E0B' }, // Pomarańczowy dla aktywnego
 
   // Top Overlay (Search & Filters)
-  topOverlay: { position: 'absolute', top: 60, width: '100%', paddingHorizontal: 20 },
+  topOverlay: { position: 'absolute', top: 60, width: '100%', paddingHorizontal: 20, zIndex: 10 },
+  topOverlayWeb: { position: 'relative', top: 0, paddingTop: 20, backgroundColor: '#F8F9FA' },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: 'white',
     borderRadius: 30, paddingHorizontal: 15, height: 55,
@@ -155,7 +127,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, marginRight: 10,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 3,
   },
-  filterChipActive: { backgroundColor: '#1E1B4B' }, // Ciemny granat z projektu
+  filterChipActive: { backgroundColor: '#1E1B4B' },
   filterText: { color: '#333', fontWeight: '500' },
   filterTextActive: { color: 'white', fontWeight: '600' },
 
@@ -165,6 +137,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'white', borderRadius: 24, padding: 15,
     flexDirection: 'row', alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
+  },
+  bottomCardWeb: {
+    position: 'relative', bottom: 0, margin: 20,
   },
   cardImage: { width: 80, height: 80, borderRadius: 16, marginRight: 15 },
   cardContent: { flex: 1 },
@@ -181,5 +156,5 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 22, left: 22, backgroundColor: 'white',
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, gap: 4,
   },
-  ratingText: { fontSize: 12, fontWeight: 'bold', color: '#333' }
+  ratingText: { fontSize: 12, fontWeight: 'bold', color: '#333' },
 });

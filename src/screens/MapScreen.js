@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, Image, Dimensions } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker } from '../components/MapViewCompat';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Tymczasowe dane symulujące bazę (widok ze screena)

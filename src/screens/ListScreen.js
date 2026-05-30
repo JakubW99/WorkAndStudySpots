@@ -42,11 +42,15 @@ const DUMMY_SPOTS = [
 
 const FILTERS = ['All Spots', 'Open Now', 'Fast Wi-Fi', 'Quiet'];
 
-export default function ListScreen() {
+export default function ListScreen({ navigation }) {
   const [activeFilter, setActiveFilter] = useState('All Spots');
 
   const renderSpotCard = ({ item }) => (
-    <View style={styles.card}>
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.9}
+      onPress={() => navigation.navigate('SpotDetail', { spotId: item.id })}
+    >
       {/* Zdjęcie z nałożoną oceną */}
       <View style={styles.imageContainer}>
         <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
@@ -84,7 +88,7 @@ export default function ListScreen() {
           <Ionicons name="map" size={20} color="#1E1B4B" />
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -118,6 +122,15 @@ export default function ListScreen() {
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
       />
+
+      {/* FAB — Dodaj nowe miejsce */}
+      <TouchableOpacity
+        style={styles.fab}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('AddSpot')}
+      >
+        <Ionicons name="add" size={28} color="#FFFFFF" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -165,5 +178,13 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 16, right: 16, backgroundColor: '#FBBF24',
     width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center',
     shadowColor: '#F59E0B', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
-  }
+  },
+
+  // FAB — przycisk dodawania miejsca
+  fab: {
+    position: 'absolute', bottom: 100, right: 24,
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: '#1E1B4B', justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#1E1B4B', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8,
+  },
 });

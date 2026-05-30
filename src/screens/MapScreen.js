@@ -27,7 +27,7 @@ const DUMMY_SPOTS = [
 
 const FILTERS = ['Fast Wi-Fi', 'Outlets', 'Quiet', '$'];
 
-export default function MapScreen() {
+export default function MapScreen({ navigation }) {
   const [selectedSpot, setSelectedSpot] = useState(DUMMY_SPOTS[0]);
 
   return (
@@ -71,7 +71,11 @@ export default function MapScreen() {
 
       {/* 3. Dolna karta wyświetlana po zaznaczeniu miejsca */}
       {selectedSpot && selectedSpot.name && (
-        <View style={[styles.bottomCard, Platform.OS === 'web' && styles.bottomCardWeb]}>
+        <TouchableOpacity
+          style={[styles.bottomCard, Platform.OS === 'web' && styles.bottomCardWeb]}
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('SpotDetail', { spotId: selectedSpot.id })}
+        >
           {selectedSpot.imageUrl && (
             <Image source={{ uri: selectedSpot.imageUrl }} style={styles.cardImage} />
           )}
@@ -99,8 +103,17 @@ export default function MapScreen() {
             <Ionicons name="star" size={12} color="#F59E0B" />
             <Text style={styles.ratingText}>{selectedSpot.rating}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
       )}
+
+      {/* FAB — Dodaj nowe miejsce */}
+      <TouchableOpacity
+        style={styles.fab}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('AddSpot')}
+      >
+        <Ionicons name="add" size={28} color="#FFFFFF" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -157,4 +170,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, gap: 4,
   },
   ratingText: { fontSize: 12, fontWeight: 'bold', color: '#333' },
+
+  // FAB — przycisk dodawania miejsca
+  fab: {
+    position: 'absolute', bottom: 100, right: 24,
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: '#1E1B4B', justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#1E1B4B', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8,
+    zIndex: 20,
+  },
 });

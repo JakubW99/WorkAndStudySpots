@@ -13,6 +13,8 @@ import MapScreen from '../screens/MapScreen';
 import ListScreen from '../screens/ListScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import AdminPanelScreen from '../screens/AdminPanelScreen';
+import SpotDetailScreen from '../screens/SpotDetailScreen';
+import AddSpotScreen from '../screens/AddSpotScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -71,29 +73,19 @@ export default function AppNavigator() {
         }}
       />
 
-      {/* 
-        Placeholdery na ekrany innych osób:
-        
-        Rafał doda:
-        - SpotDetail (szczegóły miejsca)
-        - AddSpot (formularz dodawania, modal)
-        
-        Łukasz doda:
-        - Auth flow (Login, Register) — przez AuthNavigator
-        
-        Przykład dodania po ich ukończeniu:
-        
-        <Stack.Screen 
-          name="SpotDetail" 
-          component={SpotDetailScreen} 
-          options={{ animation: 'slide_from_right' }}
-        />
-        <Stack.Screen 
-          name="AddSpot" 
-          component={AddSpotScreen} 
-          options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-        />
-      */}
+      {/* Ekran szczegółów miejsca — Rafał */}
+      <Stack.Screen
+        name="SpotDetail"
+        component={SpotDetailScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+
+      {/* Formularz dodawania miejsca — Rafał (modal) */}
+      <Stack.Screen
+        name="AddSpot"
+        component={AddSpotScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
     </Stack.Navigator>
   );
 }

@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { signOut } from '../services/authService';
 import { COLORS, FONTS } from '../theme/colors';
 
 // Dummy dane zapisanych miejsc
@@ -98,7 +99,7 @@ const getCategoryIcon = (category) => {
 };
 
 export default function ProfileScreen({ navigation }) {
-  const { user, userRole, signOut } = useAuth();
+  const { user, userData, userRole } = useAuth();
   const [activeTab, setActiveTab] = useState('saved');
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
@@ -113,7 +114,7 @@ export default function ProfileScreen({ navigation }) {
         {
           text: 'Wyloguj',
           style: 'destructive',
-          onPress: () => signOut(),
+          onPress: () => signOut(),  // z authService
         },
       ]
     );
@@ -220,7 +221,7 @@ export default function ProfileScreen({ navigation }) {
           {/* Avatar i dane */}
           <View style={styles.profileInfo}>
             <View style={styles.avatarContainer}>
-              <Image source={{ uri: user?.avatarUrl }} style={styles.avatar} />
+              <Image source={{ uri: userData?.avatarUrl }} style={styles.avatar} />
               <View style={styles.onlineIndicator} />
             </View>
             <View style={styles.profileDetails}>
@@ -249,12 +250,12 @@ export default function ProfileScreen({ navigation }) {
         {/* Statystyki */}
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{user?.spotsAdded || 0}</Text>
+            <Text style={styles.statNumber}>{userData?.spotsAdded || 0}</Text>
             <Text style={styles.statLabel}>Spots Added</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{user?.reviewsCount || 0}</Text>
+            <Text style={styles.statNumber}>{userData?.reviewsCount || 0}</Text>
             <Text style={styles.statLabel}>Reviews</Text>
           </View>
           <View style={styles.statDivider} />
@@ -388,7 +389,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.footer}>
           <Text style={styles.footerText}>WorkAndStudySpots v1.0.0</Text>
           <Text style={styles.footerSubtext}>
-            Member since {user?.createdAt?.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })}
+            Member since {userData?.createdAt?.toDate?.()?.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' }) || '—'}
           </Text>
         </View>
       </ScrollView>

@@ -1,69 +1,78 @@
 // src/context/AuthContext.js
-// Tymczasowy mock AuthContext — do zastąpienia przez Łukasza prawdziwym Firebase Auth
-// Struktura hook useAuth() jest zgodna z docelowym API opisanym w TEAM_ROLES.md
+// Kontekst autoryzacji — zarządzanie stanem logowania w całej aplikacji
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../services/firebase';
 
-// Dummy dane użytkownika — symulują zalogowanego usera
-const MOCK_USER = {
-  uid: 'user-001',
-  email: 'jakub@example.com',
-  displayName: 'Jakub Wojciechowski',
-  avatarUrl: 'https://i.pravatar.cc/200?img=68',
-  role: 'admin', // Zmień na 'user' żeby testować widok zwykłego użytkownika
-  createdAt: new Date('2024-09-15'),
-  spotsAdded: 12,
-  reviewsCount: 34,
-};
-
+// Tworzenie kontekstu
 const AuthContext = createContext(null);
 
-// Provider opakowujący całą aplikację
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(MOCK_USER);
-  const [isLoading, setIsLoading] = useState(false);
+/**
+ * AuthProvider — opakowuje aplikację i udostępnia dane o zalogowanym użytkowniku
+ * Jakub użyje tego w App.js: <AuthProvider><NavigationContainer>...</AuthProvider>
+ */
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null); // Dane użytkownika z Firebase Auth
+  const [userData, setUserData] = useState(null); // Dane z Firestore (rola, itd.)
+  const [isLoading, setIsLoading] = useState(true); // Ładowanie stanu auth
 
-  // Mock funkcji logowania/wylogowania
-  const signIn = async (email, password) => {
-    setIsLoading(true);
-    // Symulacja opóźnienia sieciowego
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setUser(MOCK_USER);
-    setIsLoading(false);
-  };
+  useEffect(() => {
+    // Nasłuchiwanie zmian stanu autentykacji
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Użytkownik zalogowany — pobierz dodatkowe dane z Firestore
+        setUser(firebaseUser);
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            setUserData(userDoc.data());
+          } else {
+            // Dokument nie istnieje — ustaw domyślne dane
+            setUserData({ role: 'user', displayName: firebaseUser.displayName || '' });
+          }
+        } catch (error) {
+          console.error('Błąd pobierania danych użytkownika:', error);
+          setUserData({ role: 'user', displayName: firebaseUser.displayName || '' });
+        }
+      } else {
+        // Użytkownik wylogowany
+        setUser(null);
+        setUserData(null);
+      }
+      setIsLoading(false);
+    });
 
-  const signOut = async () => {
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    // W mock nie wylogowujemy naprawdę — zostawiamy usera
-    // Odkomentuj poniżej aby testować stan wylogowany:
-    // setUser(null);
-    setIsLoading(false);
-  };
+    // Cleanup — odsubskrybowanie listenera przy odmontowaniu
+    return () => unsubscribe();
+  }, []);
 
+  // Wartości udostępniane przez kontekst
   const value = {
-    user,
-    isLoading,
-    isLoggedIn: !!user,
-    userRole: user?.role || 'user',
-    signIn,
-    signOut,
+    user, // Obiekt Firebase Auth user (uid, email, displayName)
+    userData, // Dane z Firestore (role, avatarUrl, spotsAdded, itd.)
+    isLoading, // true podczas sprawdzania stanu auth
+    isLoggedIn: !!user, // true jeśli zalogowany
+    userRole: userData?.role || 'user', // 'user' | 'admin'
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
 
-// Hook do używania w komponentach
-export function useAuth() {
+/**
+ * Hook do użycia w komponentach
+ * @returns {{ user, userData, isLoading, isLoggedIn, userRole }}
+ *
+ * Przykład użycia:
+ * const { user, userData, isLoggedIn, userRole } = useAuth();
+ */
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth musi być używany wewnątrz AuthProvider');
+    throw new Error('useAuth musi być użyty wewnątrz AuthProvider');
   }
   return context;
-}
+};
 
 export default AuthContext;

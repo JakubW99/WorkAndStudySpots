@@ -1,105 +1,89 @@
 // src/services/reviewsService.js
-// Serwis recenzji — dodawanie, pobieranie, usuwanie + przeliczanie średniej
+// Serwis recenzji — lokalna tablica
 
-import {
-  collection,
-  doc,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  updateDoc,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-} from 'firebase/firestore';
-import { db } from './firebase';
+import { updateSpotRating } from './spotsService';
 
-// Referencja do kolekcji reviews
-const reviewsCollection = collection(db, 'reviews');
+let MOCK_REVIEWS = [
+  {
+    id: 'r1',
+    spotId: 'spot_1',
+    userId: 'u1',
+    userName: 'Alex Mercer',
+    rating: 5,
+    comment: 'Great spot for working. The Wi-Fi is incredibly fast and there are plenty of outlets along the walls. Gets a bit noisy around lunch, though.',
+    createdAt: new Date(Date.now() - 2 * 86400000).toISOString(), // 2 days ago
+    avatarUrl: 'https://i.pravatar.cc/100?img=12',
+  },
+  {
+    id: 'r2',
+    spotId: 'spot_1',
+    userId: 'u2',
+    userName: 'Sarah Jenkins',
+    rating: 4,
+    comment: 'Coffee is decent, atmosphere is very productive. I love the large tables in the back for spreading out my study materials.',
+    createdAt: new Date(Date.now() - 7 * 86400000).toISOString(), // 1 week ago
+    avatarUrl: 'https://i.pravatar.cc/100?img=25',
+  },
+  {
+    id: 'r3',
+    spotId: 'spot_2',
+    userId: 'u3',
+    userName: 'Mark Thompson',
+    rating: 5,
+    comment: 'My go-to study spot! The baristas are friendly and the ambient music is perfect for concentration.',
+    createdAt: new Date(Date.now() - 14 * 86400000).toISOString(),
+    avatarUrl: 'https://i.pravatar.cc/100?img=33',
+  }
+];
 
-/**
- * Dodaj recenzję i przelicz średnią ocenę dla spotu
- * @param {string} spotId — ID miejsca
- * @param {string} userId — ID autora recenzji
- * @param {string} userName — imię wyświetlane
- * @param {number} rating — ocena 1-5
- * @param {string} comment — treść recenzji
- * @returns {Promise<string>} ID nowej recenzji
- */
 export const addReview = async (spotId, userId, userName, rating, comment) => {
-  // Dodanie recenzji do kolekcji
-  const reviewData = {
+  const newReview = {
+    id: 'r' + Date.now(),
     spotId,
     userId,
     userName,
     rating,
     comment,
-    createdAt: serverTimestamp(),
+    createdAt: new Date().toISOString(),
+    avatarUrl: 'https://i.pravatar.cc/100?img=' + (Math.floor(Math.random() * 70) + 1), // random avatar
   };
-  const docRef = await addDoc(reviewsCollection, reviewData);
 
-  // Przeliczenie średniej oceny dla tego spotu
+  MOCK_REVIEWS.unshift(newReview); // add to top (newest first)
   await recalculateSpotRating(spotId);
-
-  return docRef.id;
+  return newReview.id;
 };
 
-/**
- * Pobierz wszystkie recenzje dla danego miejsca (od najnowszych)
- * @param {string} spotId
- * @returns {Promise<Array>}
- */
 export const getReviewsForSpot = async (spotId) => {
-  const q = query(
-    reviewsCollection,
-    where('spotId', '==', spotId),
-    orderBy('createdAt', 'desc')
-  );
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  }));
+  return MOCK_REVIEWS
+    .filter(r => r.spotId === spotId)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 };
 
-/**
- * Usuń recenzję
- * @param {string} reviewId
- * @param {string} spotId — potrzebne do przeliczenia średniej
- * @returns {Promise<void>}
- */
-export const deleteReview = async (reviewId, spotId) => {
-  const docRef = doc(db, 'reviews', reviewId);
-  await deleteDoc(docRef);
+export const getReviewsForUser = async (userId) => {
+  return MOCK_REVIEWS
+    .filter(r => r.userId === userId)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+};
 
-  // Przelicz średnią po usunięciu
+export const deleteReview = async (reviewId, spotId) => {
+  MOCK_REVIEWS = MOCK_REVIEWS.filter(r => r.id !== reviewId);
   if (spotId) {
     await recalculateSpotRating(spotId);
   }
 };
 
-/**
- * Przelicz i zaktualizuj średnią ocenę dla spotu
- * Wywoływana automatycznie po dodaniu/usunięciu recenzji
- * @param {string} spotId
- */
 const recalculateSpotRating = async (spotId) => {
-  const q = query(reviewsCollection, where('spotId', '==', spotId));
-  const snapshot = await getDocs(q);
-
+  const spotReviews = MOCK_REVIEWS.filter(r => r.spotId === spotId);
+  
   let totalRating = 0;
-  let count = 0;
+  let count = spotReviews.length;
 
-  snapshot.docs.forEach((doc) => {
-    totalRating += doc.data().rating;
-    count++;
+  spotReviews.forEach(r => {
+    totalRating += r.rating;
   });
 
-  // Oblicz średnią (zaokrąglona do 1 miejsca po przecinku)
   const averageRating = count > 0 ? Math.round((totalRating / count) * 10) / 10 : 0;
-
-  // Zaktualizuj pole rating w dokumencie spotu
-  const spotRef = doc(db, 'spots', spotId);
-  await updateDoc(spotRef, { rating: averageRating });
+  
+  // Zaktualizuj miejsce w spotsService
+  await updateSpotRating(spotId, averageRating, count);
 };

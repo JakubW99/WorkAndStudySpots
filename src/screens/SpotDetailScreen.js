@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,9 +6,12 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   Dimensions,
   Linking,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import MapView, { Marker } from '../components/MapViewCompat';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,72 +19,100 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AmenityBadge from '../components/AmenityBadge';
 import ReviewCard from '../components/ReviewCard';
 import RatingStars from '../components/RatingStars';
+import { useTheme } from '../context/ThemeContext';
+import { useFavorites } from '../context/FavoritesContext';
+import { useAuth } from '../context/AuthContext';
+import { getSpotById } from '../services/spotsService';
+import { getReviewsForSpot, addReview } from '../services/reviewsService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Dane tymczasowe — zostaną zastąpione przez serwisy Firebase (Łukasz)
-const DUMMY_DETAIL = {
-  id: '1',
-  name: 'The Grindhouse Roasters',
-  category: 'cafe',
-  rating: 4.8,
-  reviewCount: 124,
-  distance: '0.8 km',
-  district: 'Downtown District',
-  imageUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=600',
-  wifiSpeed: 50,
-  wifi: 'Fast',
-  outlets: 'Available',
-  noise: 'Moderate',
-  latitude: 50.0614,
-  longitude: 19.9365,
-  address: '123 Espresso Lane',
-  addressFull: 'Downtown District, Cityville 90210',
-  openNow: true,
-  hours: '7:00 AM - 8:00 PM',
-  description: 'A cozy, modern café perfect for remote workers and students. Fast Wi-Fi, plenty of outlets, and expertly crafted coffee.',
-  reviews: [
-    {
-      id: 'r1',
-      userName: 'Alex Mercer',
-      timeAgo: '2 days ago',
-      rating: 5,
-      comment:
-        'Great spot for working. The Wi-Fi is incredibly fast and there are plenty of outlets along the walls. Gets a bit noisy around lunch, though.',
-      avatarUrl: 'https://i.pravatar.cc/100?img=12',
-    },
-    {
-      id: 'r2',
-      userName: 'Sarah Jenkins',
-      timeAgo: '1 week ago',
-      rating: 4,
-      comment:
-        'Coffee is decent, atmosphere is very productive. I love the large tables in the back for spreading out my study materials.',
-      avatarUrl: 'https://i.pravatar.cc/100?img=25',
-    },
-    {
-      id: 'r3',
-      userName: 'Mark Thompson',
-      timeAgo: '2 weeks ago',
-      rating: 5,
-      comment:
-        'My go-to study spot! The baristas are friendly and the ambient music is perfect for concentration.',
-      avatarUrl: 'https://i.pravatar.cc/100?img=33',
-    },
-  ],
-};
+// Dane tymczasowe usunięte - pobieramy z serwisu
+
+
 
 // Mapowanie kategorii na etykiety
 const CATEGORY_LABELS = {
   cafe: 'CAFE',
   library: 'LIBRARY',
   coworking: 'COWORKING',
+  outdoor: 'OUTDOOR',
+  university: 'SCHOOL / UNI',
+  other: 'OTHER',
+};
+
+// Price level options for the review form
+const PRICE_OPTIONS = ['Free', '$', '$$', '$$$', '$$$$', '$$$$$'];
+
+/**
+ * Helper: convert a numeric priceLevel to a display string.
+ * 0 → 'Free', 1 → '$', 2 → '$$', etc.
+ */
+const priceLevelToString = (level) => {
+  if (level === 0) return 'Free';
+  return '$'.repeat(level);
 };
 
 export default function SpotDetailScreen({ navigation, route }) {
-  // Pobierz spotId z parametrów nawigacji (na razie używamy dummy data)
-  // const { spotId } = route.params;
-  const spot = DUMMY_DETAIL;
+  const { spotId } = route.params;
+
+  const { isDarkMode, colors } = useTheme();
+  const { toggleFavorite, isFavorite } = useFavorites();
+  const { user } = useAuth(); // User for review submission
+
+  const [spot, setSpot] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Review form state
+  const [newRating, setNewRating] = useState(0);
+  const [newComment, setNewComment] = useState('');
+  const [newPriceLevel, setNewPriceLevel] = useState(0);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const spotData = await getSpotById(spotId);
+        const reviewsData = await getReviewsForSpot(spotId);
+        setSpot(spotData);
+        setReviews(reviewsData);
+      } catch (err) {
+        console.warn('Error fetching spot detail:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [spotId]);
+
+  // Submit a new review
+  const handleSubmitReview = async () => {
+    if (newRating === 0) {
+      Alert.alert('Rating required', 'Please select a star rating before submitting.');
+      return;
+    }
+
+    const userName = user && user.email ? user.email.split('@')[0] : 'Anonymous User';
+    const userId = user ? user.uid : 'anon';
+
+    try {
+      await addReview(spotId, userId, userName, newRating, newComment);
+      
+      // Refresh to reflect the new rating and review
+      const updatedReviews = await getReviewsForSpot(spotId);
+      const updatedSpot = await getSpotById(spotId);
+      setReviews(updatedReviews);
+      setSpot(updatedSpot);
+
+      setNewRating(0);
+      setNewComment('');
+      setNewPriceLevel(0);
+      Alert.alert('Thank you!', 'Your review has been submitted.');
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Could not submit review.');
+    }
+  };
 
   // Otwórz nawigację do miejsca (Google Maps / Apple Maps)
   const handleNavigateToSpot = () => {
@@ -106,8 +137,16 @@ export default function SpotDetailScreen({ navigation, route }) {
     }
   };
 
+  if (isLoading || !spot) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -131,8 +170,16 @@ export default function SpotDetailScreen({ navigation, route }) {
           </TouchableOpacity>
 
           {/* Przycisk ulubionych */}
-          <TouchableOpacity style={styles.favoriteButton} activeOpacity={0.7}>
-            <Ionicons name="heart-outline" size={22} color="#FFFFFF" />
+          <TouchableOpacity
+            style={styles.favoriteButton}
+            onPress={() => toggleFavorite(spot)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isFavorite(spot.id) ? 'heart' : 'heart-outline'}
+              size={22}
+              color={isFavorite(spot.id) ? '#EF4444' : '#FFFFFF'}
+            />
           </TouchableOpacity>
 
           {/* Informacje na hero overlay */}
@@ -164,8 +211,18 @@ export default function SpotDetailScreen({ navigation, route }) {
           </View>
         </View>
 
-        {/* ─── B) Kafelki amenities (3 kolumny) ─── */}
-        <View style={styles.amenitiesRow}>
+        {/* ─── B) Opis (About) ─── */}
+        {spot.description ? (
+          <View style={[styles.section, { marginTop: 16 }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>About</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 15, lineHeight: 22 }}>
+              {spot.description}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* ─── C) Kafelki amenities (wrapping flex layout for 5 badges) ─── */}
+        <View style={[styles.amenitiesRow, { backgroundColor: colors.background }]}>
           <AmenityBadge
             icon="wifi"
             label="Wi-Fi"
@@ -184,14 +241,26 @@ export default function SpotDetailScreen({ navigation, route }) {
             value={spot.noise}
             color="#F59E0B"
           />
+          <AmenityBadge
+            icon="people"
+            label="Crowd"
+            value={spot.crowdedness}
+            color="#8B5CF6"
+          />
+          <AmenityBadge
+            icon="cash-outline"
+            label="Price"
+            value={priceLevelToString(spot.priceLevel)}
+            color="#059669"
+          />
         </View>
 
         {/* ─── C) Sekcja lokalizacji ─── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Location</Text>
 
           {/* Mini mapa */}
-          <View style={styles.miniMapContainer}>
+          <View style={[styles.miniMapContainer, { shadowColor: colors.cardShadow }]}>
             <MapView
               style={styles.miniMap}
               initialRegion={{
@@ -220,19 +289,19 @@ export default function SpotDetailScreen({ navigation, route }) {
 
           {/* Adres */}
           <View style={styles.infoRow}>
-            <View style={styles.infoIconContainer}>
-              <Ionicons name="location" size={18} color="#1E1B4B" />
+            <View style={[styles.infoIconContainer, { backgroundColor: isDarkMode ? colors.subtleBg : '#EEF2FF' }]}>
+              <Ionicons name="location" size={18} color={colors.primary || '#1E1B4B'} />
             </View>
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>{spot.address}</Text>
-              <Text style={styles.infoSub}>{spot.addressFull}</Text>
+              <Text style={[styles.infoLabel, { color: colors.textPrimary }]}>{spot.address}</Text>
+              <Text style={[styles.infoSub, { color: colors.textMuted }]}>{spot.addressFull}</Text>
             </View>
           </View>
 
           {/* Godziny otwarcia */}
           <View style={styles.infoRow}>
-            <View style={styles.infoIconContainer}>
-              <Ionicons name="time" size={18} color="#1E1B4B" />
+            <View style={[styles.infoIconContainer, { backgroundColor: isDarkMode ? colors.subtleBg : '#EEF2FF' }]}>
+              <Ionicons name="time" size={18} color={colors.primary || '#1E1B4B'} />
             </View>
             <View style={styles.infoContent}>
               <View style={styles.hoursRow}>
@@ -241,7 +310,7 @@ export default function SpotDetailScreen({ navigation, route }) {
                     <Text style={styles.openBadgeText}>Open Now</Text>
                   </View>
                 )}
-                <Text style={styles.hoursText}>{spot.hours}</Text>
+                <Text style={[styles.hoursText, { color: colors.textSecondary }]}>{spot.hours}</Text>
               </View>
             </View>
           </View>
@@ -250,9 +319,9 @@ export default function SpotDetailScreen({ navigation, route }) {
         {/* ─── D) Sekcja recenzji ─── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
               Community Reviews{' '}
-              <Text style={styles.reviewCountText}>({spot.reviewCount})</Text>
+              <Text style={[styles.reviewCountText, { color: colors.textMuted }]}>({spot.reviewCount})</Text>
             </Text>
             <TouchableOpacity>
               <Text style={styles.seeAllLink}>See All</Text>
@@ -260,37 +329,115 @@ export default function SpotDetailScreen({ navigation, route }) {
           </View>
 
           {/* Średnia ocena */}
-          <View style={styles.averageRatingRow}>
-            <Text style={styles.averageRatingNumber}>{spot.rating}</Text>
+          <View style={[styles.averageRatingRow, { backgroundColor: colors.card, borderColor: colors.borderLight }]}>
+            <Text style={[styles.averageRatingNumber, { color: colors.textPrimary }]}>{spot.rating}</Text>
             <View style={styles.averageRatingInfo}>
               <RatingStars rating={spot.rating} size={18} />
-              <Text style={styles.averageRatingLabel}>
+              <Text style={[styles.averageRatingLabel, { color: colors.textMuted }]}>
                 Based on {spot.reviewCount} reviews
               </Text>
             </View>
           </View>
 
-          {/* Lista recenzji */}
-          {spot.reviews.map((review) => (
-            <ReviewCard
-              key={review.id}
-              userName={review.userName}
-              timeAgo={review.timeAgo}
-              rating={review.rating}
-              comment={review.comment}
-              avatarUrl={review.avatarUrl}
+          {/* Lista recenzji - poziomy suwak */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 16, gap: 12 }}>
+            {reviews.map((review) => (
+              <View key={review.id} style={{ width: SCREEN_WIDTH * 0.75 }}>
+                <ReviewCard
+                  userName={review.userName}
+                  timeAgo={review.timeAgo}
+                  rating={review.rating}
+                  comment={review.comment}
+                  avatarUrl={review.avatarUrl}
+                />
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* ─── E) Sekcja dodawania recenzji ─── */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Add Your Review</Text>
+
+          <View style={[styles.reviewFormCard, { backgroundColor: colors.card, borderColor: colors.borderLight }]}>
+            {/* Star rating */}
+            <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Your Rating</Text>
+            <RatingStars rating={newRating} size={28} interactive={true} onRate={setNewRating} />
+
+            {/* Comment input */}
+            <Text style={[styles.formLabel, { color: colors.textSecondary, marginTop: 16 }]}>Comment</Text>
+            <TextInput
+              style={[
+                styles.commentInput,
+                {
+                  backgroundColor: colors.inputBg,
+                  color: colors.textPrimary,
+                  borderColor: colors.border,
+                },
+              ]}
+              placeholder="Share your experience..."
+              placeholderTextColor={colors.textMuted}
+              multiline={true}
+              numberOfLines={3}
+              textAlignVertical="top"
+              value={newComment}
+              onChangeText={setNewComment}
             />
-          ))}
+
+            {/* Price selector */}
+            <Text style={[styles.formLabel, { color: colors.textSecondary, marginTop: 16 }]}>Price Level</Text>
+            <View style={styles.priceChipsRow}>
+              {PRICE_OPTIONS.map((label, index) => {
+                const isActive = newPriceLevel === index;
+                return (
+                  <TouchableOpacity
+                    key={label}
+                    style={[
+                      styles.priceChip,
+                      {
+                        backgroundColor: isActive ? colors.chipActiveBg : colors.chipBg,
+                        borderColor: isActive ? colors.accent : colors.border,
+                      },
+                    ]}
+                    onPress={() => setNewPriceLevel(index)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.priceChipText,
+                        {
+                          color: isActive ? colors.accent : colors.textSecondary,
+                          fontWeight: isActive ? '700' : '500',
+                        },
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Submit button */}
+            <TouchableOpacity
+              style={[styles.submitButton, { backgroundColor: colors.primary || '#1E1B4B' }]}
+              onPress={handleSubmitReview}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="send" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.submitButtonText}>Submit Review</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Odstęp na przycisk CTA na dole */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* ─── E) Przycisk CTA — fixed na dole ─── */}
-      <SafeAreaView edges={['bottom']} style={styles.ctaContainer}>
+      {/* ─── F) Przycisk CTA — fixed na dole ─── */}
+      <SafeAreaView edges={['bottom']} style={[styles.ctaContainer, { backgroundColor: isDarkMode ? 'rgba(30,27,75,0.95)' : 'rgba(248,249,250,0.95)', borderTopColor: colors.border }]}>
         <TouchableOpacity
-          style={styles.ctaButton}
+          style={[styles.ctaButton, { backgroundColor: colors.primary || '#1E1B4B' }]}
           onPress={handleNavigateToSpot}
           activeOpacity={0.8}
         >
@@ -411,9 +558,10 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
 
-  // ─── Amenities Row ───
+  // ─── Amenities Row (wrapping flex layout) ───
   amenitiesRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: 16,
     paddingVertical: 16,
     gap: 10,
@@ -553,6 +701,71 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#9CA3AF',
     marginTop: 4,
+  },
+
+  // ─── Review Form ───
+  reviewFormCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  commentInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 15,
+    minHeight: 80,
+    backgroundColor: '#F9FAFB',
+  },
+  priceChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  priceChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
+  },
+  priceChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  submitButton: {
+    marginTop: 20,
+    backgroundColor: '#1E1B4B',
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#1E1B4B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 
   // ─── CTA Button ───

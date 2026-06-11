@@ -4,7 +4,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { Platform } from 'react-native';
+import { getAuth } from 'firebase/auth';
 
 // Konfiguracja Firebase — wartości pobierane z pliku .env
 // Prefix EXPO_PUBLIC_ jest wymagany przez Expo SDK 54
@@ -20,20 +20,8 @@ const firebaseConfig = {
 // Inicjalizacja aplikacji Firebase
 const app = initializeApp(firebaseConfig);
 
-// Inicjalizacja Auth — różna persistence dla web i native
-let auth;
-if (Platform.OS === 'web') {
-  // Na webie — domyślna persistence (browserLocalPersistence)
-  const { getAuth } = require('firebase/auth');
-  auth = getAuth(app);
-} else {
-  // Na mobile (Expo Go) — AsyncStorage persistence
-  const { initializeAuth, getReactNativePersistence } = require('firebase/auth');
-  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-}
+// Inicjalizacja Auth — uzycie getAuth (dziala zarowno na web jak i native)
+const auth = getAuth(app);
 
 // Inicjalizacja Firestore
 const db = getFirestore(app);

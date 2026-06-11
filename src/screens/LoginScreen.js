@@ -17,8 +17,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { signIn, resetPassword } from '../services/authService';
+import { useTheme } from '../context/ThemeContext';
 
 export default function LoginScreen({ navigation }) {
+  const { colors, isDarkMode } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -87,7 +89,7 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -99,18 +101,18 @@ export default function LoginScreen({ navigation }) {
         >
           {/* Logo i tytuł */}
           <View style={styles.headerSection}>
-            <View style={styles.logoContainer}>
+            <View style={[styles.logoContainer, { backgroundColor: isDarkMode ? '#4338CA' : '#1E1B4B' }]}>
               <Ionicons name="location" size={40} color="#FFFFFF" />
             </View>
-            <Text style={styles.appTitle}>WorkStudy</Text>
-            <Text style={styles.appSubtitle}>
+            <Text style={[styles.appTitle, { color: colors.textPrimary }]}>WorkStudy</Text>
+            <Text style={[styles.appSubtitle, { color: colors.textSecondary }]}>
               Znajdź najlepsze miejsca do pracy i nauki
             </Text>
           </View>
 
           {/* Formularz logowania */}
-          <View style={styles.formSection}>
-            <Text style={styles.formTitle}>Zaloguj się</Text>
+          <View style={[styles.formSection, { backgroundColor: colors.card }]}>
+            <Text style={[styles.formTitle, { color: colors.textPrimary }]}>Zaloguj się</Text>
 
             {/* Komunikat błędu */}
             {error ? (
@@ -121,12 +123,12 @@ export default function LoginScreen({ navigation }) {
             ) : null}
 
             {/* Pole email */}
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+              <Ionicons name="mail-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.textPrimary }]}
                 placeholder="Adres e-mail"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
@@ -139,12 +141,12 @@ export default function LoginScreen({ navigation }) {
             </View>
 
             {/* Pole hasło */}
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+              <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.textPrimary }]}
                 placeholder="Hasło"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
@@ -159,19 +161,19 @@ export default function LoginScreen({ navigation }) {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color="#9CA3AF"
+                  color={colors.textMuted}
                 />
               </TouchableOpacity>
             </View>
 
             {/* Link "Zapomniałeś hasła?" */}
             <TouchableOpacity onPress={handleResetPassword} style={styles.forgotPasswordLink}>
-              <Text style={styles.forgotPasswordText}>Zapomniałeś hasła?</Text>
+              <Text style={[styles.forgotPasswordText, { color: colors.accent }]}>Zapomniałeś hasła?</Text>
             </TouchableOpacity>
 
             {/* Przycisk logowania */}
             <TouchableOpacity
-              style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+              style={[styles.loginButton, isLoading && styles.loginButtonDisabled, { backgroundColor: isDarkMode ? '#4338CA' : '#1E1B4B' }]}
               onPress={handleLogin}
               disabled={isLoading}
               activeOpacity={0.8}
@@ -186,9 +188,9 @@ export default function LoginScreen({ navigation }) {
 
           {/* Link do rejestracji */}
           <View style={styles.bottomSection}>
-            <Text style={styles.bottomText}>Nie masz konta? </Text>
+            <Text style={[styles.bottomText, { color: colors.textSecondary }]}>Nie masz konta? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.registerLink}>Zarejestruj się</Text>
+              <Text style={[styles.registerLink, { color: colors.textPrimary }]}>Zarejestruj się</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

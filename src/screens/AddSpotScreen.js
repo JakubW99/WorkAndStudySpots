@@ -11,10 +11,16 @@ import {
   Animated,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import MapView, { Marker } from '../components/MapViewCompat';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import { addSpot } from '../services/spotsService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -30,16 +36,36 @@ const CATEGORIES = [
   { key: 'cafe', label: 'Cafe', emoji: '☕' },
   { key: 'library', label: 'Library', emoji: '📚' },
   { key: 'coworking', label: 'Coworking', emoji: '💼' },
+  { key: 'outdoor', label: 'Outdoor', emoji: '🌳' },
+  { key: 'university', label: 'School / Uni', emoji: '🎓' },
+  { key: 'other', label: 'Other', emoji: '📍' },
+];
+
+// Fikcyjne obrazki do "uploadu"
+const DUMMY_IMAGES = [
+  'https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=400&auto=format&fit=crop', // cafe
+  'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=400&auto=format&fit=crop', // office
+  'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?q=80&w=400&auto=format&fit=crop', // library
+  'https://images.unsplash.com/photo-1556761175-5973dc0f32b7?q=80&w=400&auto=format&fit=crop', // coworking
 ];
 
 // Opcje udogodnień
 const WIFI_OPTIONS = ['Spotty', 'Reliable', 'Fast'];
 const OUTLET_OPTIONS = ['None', 'Limited', 'Plentiful'];
 const NOISE_OPTIONS = ['Silent', 'Chatter', 'Lively'];
+const CROWD_OPTIONS = ['Empty', 'Moderate', 'Busy', 'Packed'];
+const PRICE_OPTIONS = ['Free', '$', '$$', '$$$'];
 
 export default function AddSpotScreen({ navigation }) {
+  // Motyw (dark mode)
+  const { colors } = useTheme();
+
+  // Autentykacja użytkownika
+  const { user } = useAuth();
+
   // Stan aktualnego kroku (0, 1, 2)
   const [currentStep, setCurrentStep] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Dane formularza
   const [formData, setFormData] = useState({
@@ -47,10 +73,14 @@ export default function AddSpotScreen({ navigation }) {
     name: '',
     category: '',
     description: '',
+    hours: '',
+    imageUrl: '', // Fikcyjne zdjęcie
     // Step 2 — Amenities
     wifi: '',
     outlets: '',
     noise: '',
+    crowdedness: '',
+    priceLevel: '',
     // Step 3 — Location
     latitude: null,
     longitude: null,
@@ -88,11 +118,13 @@ export default function AddSpotScreen({ navigation }) {
     if (currentStep === 0) {
       // Walidacja Step 1
       if (!formData.name.trim()) {
-        Alert.alert('Brak nazwy', 'Podaj nazwę miejsca, aby kontynuować.');
+        if (Platform.OS === 'web') window.alert('Podaj nazwę miejsca, aby kontynuować.');
+        else Alert.alert('Brak nazwy', 'Podaj nazwę miejsca, aby kontynuować.');
         return;
       }
       if (!formData.category) {
-        Alert.alert('Brak kategorii', 'Wybierz kategorię miejsca.');
+        if (Platform.OS === 'web') window.alert('Wybierz kategorię miejsca.');
+        else Alert.alert('Brak kategorii', 'Wybierz kategorię miejsca.');
         return;
       }
     }
@@ -130,30 +162,49 @@ export default function AddSpotScreen({ navigation }) {
   };
 
   // Wysłanie formularza
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.latitude || !formData.longitude) {
-      Alert.alert('Brak lokalizacji', 'Dotknij mapę, aby postawić pin z lokalizacją.');
+      if (Platform.OS === 'web') window.alert('Dotknij mapę, aby postawić pin z lokalizacją.');
+      else Alert.alert('Brak lokalizacji', 'Dotknij mapę, aby postawić pin z lokalizacją.');
       return;
     }
 
-    // Na razie console.log — potem podpięcie do spotsService.addSpot (Łukasz)
-    console.log('=== Nowe miejsce ===');
-    console.log(JSON.stringify(formData, null, 2));
+    setIsSubmitting(true);
+    try {
+      // Dla celu podglądu natychmiastowych zmian wymuszam zmianę obiektu na 'approved'
+      // aby od razu pojawił się na liście i mapie bez czekania na Panel Admina (który też zaimplementowaliśmy, ale user nie chce czekać).
+      const userId = user?.uid || 'anonymous';
+      const augmentedData = { ...formData, status: 'approved' };
+      await addSpot(augmentedData, userId);
 
-    Alert.alert(
-      '🎉 Miejsce dodane!',
-      'Twoje miejsce zostało wysłane do moderacji. Pojawi się na mapie po zatwierdzeniu przez admina.',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (navigation && navigation.goBack) {
-              navigation.goBack();
-            }
-          },
-        },
-      ]
-    );
+      // Pokazujemy alert i cofamy ekran, map i list uzywają listenera by zaktualizować się na focus()
+      // Pokazujemy alert i cofamy ekran
+      if (Platform.OS === 'web') {
+        window.alert('🎉 Miejsce dodane! Twoje miejsce zostało wysłane i dodane do naszej mapy.');
+        if (navigation && navigation.goBack) navigation.goBack();
+      } else {
+        Alert.alert(
+          '🎉 Miejsce dodane!',
+          'Twoje miejsce zostało wysłane i dodane do naszej mapy (Dla celów testowych ominęto moderację).',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                if (navigation && navigation.goBack) {
+                  navigation.goBack();
+                }
+              },
+            },
+          ]
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      if (Platform.OS === 'web') window.alert('Nie udało się dodać miejsca. Sprawdź połączenie internetowe i spróbuj ponownie.');
+      else Alert.alert('Błąd', 'Nie udało się dodać miejsca. Sprawdź połączenie internetowe i spróbuj ponownie.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Kliknięcie na mapę — postawienie pina
@@ -191,14 +242,14 @@ export default function AddSpotScreen({ navigation }) {
               style={[
                 styles.stepCircle,
                 isCompleted && styles.stepCircleCompleted,
-                isActive && styles.stepCircleActive,
-                isFuture && styles.stepCircleFuture,
+                isActive && [styles.stepCircleActive, { backgroundColor: colors.primary }],
+                isFuture && [styles.stepCircleFuture, { backgroundColor: colors.borderLight }],
               ]}
             >
               {isCompleted ? (
                 <Ionicons name="checkmark" size={16} color="#FFFFFF" />
               ) : isFuture ? (
-                <Ionicons name="lock-closed" size={14} color="#D1D5DB" />
+                <Ionicons name="lock-closed" size={14} color={colors.textMuted} />
               ) : (
                 <Ionicons name={step.icon} size={16} color="#FFFFFF" />
               )}
@@ -208,8 +259,9 @@ export default function AddSpotScreen({ navigation }) {
             <Text
               style={[
                 styles.stepLabel,
-                isActive && styles.stepLabelActive,
-                isFuture && styles.stepLabelFuture,
+                { color: colors.textSecondary },
+                isActive && [styles.stepLabelActive, { color: colors.primary }],
+                isFuture && [styles.stepLabelFuture, { color: colors.textMuted }],
               ]}
               numberOfLines={1}
             >
@@ -226,6 +278,7 @@ export default function AddSpotScreen({ navigation }) {
               <View
                 style={[
                   styles.stepLine,
+                  { backgroundColor: colors.borderLight },
                   isCompleted && styles.stepLineCompleted,
                 ]}
               />
@@ -243,18 +296,47 @@ export default function AddSpotScreen({ navigation }) {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.stepTitle}>Tell us about the spot</Text>
-      <Text style={styles.stepSubtitle}>
+      <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>Tell us about the spot</Text>
+      <Text style={[styles.stepSubtitle, { color: colors.textMuted }]}>
         Share basic information about this work-friendly place.
       </Text>
 
+      {/* Fikcyjne Zdjęcie */}
+      <View style={styles.inputGroup}>
+        <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Cover Photo</Text>
+        {formData.imageUrl ? (
+          <View style={styles.imagePreviewContainer}>
+            <Image source={{ uri: formData.imageUrl }} style={styles.imagePreview} />
+            <TouchableOpacity
+              style={[styles.removeImageButton, { backgroundColor: colors.overlay }]}
+              onPress={() => updateField('imageUrl', '')}
+            >
+              <Ionicons name="trash" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.imageUploadBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+            onPress={() => {
+              // Wybierz losowe fikcyjne zdjęcie
+              const randomImg = DUMMY_IMAGES[Math.floor(Math.random() * DUMMY_IMAGES.length)];
+              updateField('imageUrl', randomImg);
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="camera-outline" size={32} color={colors.textMuted} />
+            <Text style={[styles.imageUploadText, { color: colors.textSecondary }]}>Tap to add a photo</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Nazwa miejsca */}
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Spot Name</Text>
+        <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Spot Name</Text>
         <TextInput
-          style={styles.textInput}
+          style={[styles.textInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
           placeholder="e.g. Kawiarnia Literacka"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={colors.textMuted}
           value={formData.name}
           onChangeText={(text) => updateField('name', text)}
           autoFocus={false}
@@ -263,14 +345,15 @@ export default function AddSpotScreen({ navigation }) {
 
       {/* Kategoria */}
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Category</Text>
+        <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Category</Text>
         <View style={styles.categoryRow}>
           {CATEGORIES.map((cat) => (
             <TouchableOpacity
               key={cat.key}
               style={[
                 styles.categoryButton,
-                formData.category === cat.key && styles.categoryButtonActive,
+                { backgroundColor: colors.inputBg, borderColor: colors.border },
+                formData.category === cat.key && [styles.categoryButtonActive, { borderColor: colors.primary, backgroundColor: colors.chipActiveBg }],
               ]}
               onPress={() => updateField('category', cat.key)}
               activeOpacity={0.7}
@@ -279,7 +362,8 @@ export default function AddSpotScreen({ navigation }) {
               <Text
                 style={[
                   styles.categoryLabel,
-                  formData.category === cat.key && styles.categoryLabelActive,
+                  { color: colors.textSecondary },
+                  formData.category === cat.key && [styles.categoryLabelActive, { color: colors.primary }],
                 ]}
               >
                 {cat.label}
@@ -289,13 +373,25 @@ export default function AddSpotScreen({ navigation }) {
         </View>
       </View>
 
+      {/* Godziny otwarcia */}
+      <View style={styles.inputGroup}>
+        <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Opening Hours</Text>
+        <TextInput
+          style={[styles.textInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
+          placeholder="e.g. Mon-Fri 8:00 - 20:00"
+          placeholderTextColor={colors.textMuted}
+          value={formData.hours}
+          onChangeText={(text) => updateField('hours', text)}
+        />
+      </View>
+
       {/* Opis */}
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Description</Text>
+        <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Description</Text>
         <TextInput
-          style={[styles.textInput, styles.textArea]}
+          style={[styles.textInput, styles.textArea, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
           placeholder="Describe the atmosphere, what makes this spot great for work or study..."
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={colors.textMuted}
           multiline={true}
           numberOfLines={4}
           textAlignVertical="top"
@@ -308,6 +404,7 @@ export default function AddSpotScreen({ navigation }) {
       <TouchableOpacity
         style={[
           styles.primaryButton,
+          { backgroundColor: colors.primary, shadowColor: colors.primary },
           (!formData.name.trim() || !formData.category) && styles.primaryButtonDisabled,
         ]}
         onPress={handleNext}
@@ -325,16 +422,16 @@ export default function AddSpotScreen({ navigation }) {
       style={styles.stepContent}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.stepTitle}>Amenities & Vibe</Text>
-      <Text style={styles.stepSubtitle}>
+      <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>Amenities & Vibe</Text>
+      <Text style={[styles.stepSubtitle, { color: colors.textMuted }]}>
         Help others know what to expect at this spot.
       </Text>
 
       {/* Wi-Fi Reliability */}
       <View style={styles.optionGroup}>
         <View style={styles.optionHeader}>
-          <Ionicons name="wifi" size={20} color="#1E1B4B" />
-          <Text style={styles.optionTitle}>Wi-Fi Reliability</Text>
+          <Ionicons name="wifi" size={20} color={colors.textPrimary} />
+          <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Wi-Fi Reliability</Text>
         </View>
         <View style={styles.pillRow}>
           {WIFI_OPTIONS.map((option) => (
@@ -342,7 +439,8 @@ export default function AddSpotScreen({ navigation }) {
               key={option}
               style={[
                 styles.pillButton,
-                formData.wifi === option && styles.pillButtonActive,
+                { backgroundColor: colors.chipBg, borderColor: 'transparent' },
+                formData.wifi === option && [styles.pillButtonActive, { backgroundColor: colors.chipActiveBg, borderColor: colors.primary }],
               ]}
               onPress={() => updateField('wifi', option)}
               activeOpacity={0.7}
@@ -350,7 +448,8 @@ export default function AddSpotScreen({ navigation }) {
               <Text
                 style={[
                   styles.pillText,
-                  formData.wifi === option && styles.pillTextActive,
+                  { color: colors.textSecondary },
+                  formData.wifi === option && [styles.pillTextActive, { color: colors.primary }],
                 ]}
               >
                 {option}
@@ -363,8 +462,8 @@ export default function AddSpotScreen({ navigation }) {
       {/* Power Outlets */}
       <View style={styles.optionGroup}>
         <View style={styles.optionHeader}>
-          <Ionicons name="power" size={20} color="#1E1B4B" />
-          <Text style={styles.optionTitle}>Power Outlets</Text>
+          <Ionicons name="power" size={20} color={colors.textPrimary} />
+          <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Power Outlets</Text>
         </View>
         <View style={styles.pillRow}>
           {OUTLET_OPTIONS.map((option) => (
@@ -372,7 +471,8 @@ export default function AddSpotScreen({ navigation }) {
               key={option}
               style={[
                 styles.pillButton,
-                formData.outlets === option && styles.pillButtonActive,
+                { backgroundColor: colors.chipBg, borderColor: 'transparent' },
+                formData.outlets === option && [styles.pillButtonActive, { backgroundColor: colors.chipActiveBg, borderColor: colors.primary }],
               ]}
               onPress={() => updateField('outlets', option)}
               activeOpacity={0.7}
@@ -380,7 +480,8 @@ export default function AddSpotScreen({ navigation }) {
               <Text
                 style={[
                   styles.pillText,
-                  formData.outlets === option && styles.pillTextActive,
+                  { color: colors.textSecondary },
+                  formData.outlets === option && [styles.pillTextActive, { color: colors.primary }],
                 ]}
               >
                 {option}
@@ -393,8 +494,8 @@ export default function AddSpotScreen({ navigation }) {
       {/* Noise Level */}
       <View style={styles.optionGroup}>
         <View style={styles.optionHeader}>
-          <Ionicons name="volume-medium" size={20} color="#1E1B4B" />
-          <Text style={styles.optionTitle}>Noise Level</Text>
+          <Ionicons name="volume-medium" size={20} color={colors.textPrimary} />
+          <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Noise Level</Text>
         </View>
         <View style={styles.pillRow}>
           {NOISE_OPTIONS.map((option) => (
@@ -402,7 +503,8 @@ export default function AddSpotScreen({ navigation }) {
               key={option}
               style={[
                 styles.pillButton,
-                formData.noise === option && styles.pillButtonActive,
+                { backgroundColor: colors.chipBg, borderColor: 'transparent' },
+                formData.noise === option && [styles.pillButtonActive, { backgroundColor: colors.chipActiveBg, borderColor: colors.primary }],
               ]}
               onPress={() => updateField('noise', option)}
               activeOpacity={0.7}
@@ -410,7 +512,8 @@ export default function AddSpotScreen({ navigation }) {
               <Text
                 style={[
                   styles.pillText,
-                  formData.noise === option && styles.pillTextActive,
+                  { color: colors.textSecondary },
+                  formData.noise === option && [styles.pillTextActive, { color: colors.primary }],
                 ]}
               >
                 {option}
@@ -420,19 +523,77 @@ export default function AddSpotScreen({ navigation }) {
         </View>
       </View>
 
+      {/* Crowdedness */}
+      <View style={styles.optionGroup}>
+        <View style={styles.optionHeader}>
+          <Ionicons name="people" size={20} color={colors.textPrimary} />
+          <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>Crowdedness</Text>
+        </View>
+        <View style={styles.pillRow}>
+          {CROWD_OPTIONS.map((option) => (
+            <TouchableOpacity
+              key={option}
+              style={[
+                styles.pillButton,
+                { backgroundColor: colors.chipBg, borderColor: 'transparent' },
+                formData.crowdedness === option && [styles.pillButtonActive, { backgroundColor: colors.chipActiveBg, borderColor: colors.primary }],
+              ]}
+              onPress={() => updateField('crowdedness', option)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.pillText,
+                  { color: colors.textSecondary },
+                  formData.crowdedness === option && [styles.pillTextActive, { color: colors.primary }],
+                ]}
+              >
+                {option}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Price Level */}
+      <View style={styles.optionGroup}>
+        <View style={styles.optionHeader}>
+          <Ionicons name="cash-outline" size={20} color={colors.textPrimary} />
+          <Text style={[styles.optionTitle, { color: colors.textPrimary }]}>
+            Price Level: {formData.priceLevel || 'Free'}
+          </Text>
+        </View>
+        <Slider
+          style={{ width: '100%', height: 40, marginTop: 10 }}
+          minimumValue={0}
+          maximumValue={PRICE_OPTIONS.length - 1}
+          step={1}
+          value={PRICE_OPTIONS.indexOf(formData.priceLevel) !== -1 ? PRICE_OPTIONS.indexOf(formData.priceLevel) : 0}
+          onValueChange={(val) => updateField('priceLevel', PRICE_OPTIONS[val])}
+          minimumTrackTintColor={colors.primary}
+          maximumTrackTintColor={colors.border}
+          thumbTintColor={colors.accent}
+        />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 10 }}>
+          {PRICE_OPTIONS.map((opt) => (
+            <Text key={opt} style={{ color: colors.textMuted, fontSize: 12 }}>{opt}</Text>
+          ))}
+        </View>
+      </View>
+
       {/* Przyciski nawigacji */}
       <View style={styles.buttonRow}>
         <TouchableOpacity
-          style={styles.secondaryButton}
+          style={[styles.secondaryButton, { backgroundColor: colors.chipBg }]}
           onPress={handleBack}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={20} color="#1E1B4B" />
-          <Text style={styles.secondaryButtonText}>Back</Text>
+          <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
+          <Text style={[styles.secondaryButtonText, { color: colors.textPrimary }]}>Back</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.primaryButton}
+          style={[styles.primaryButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
           onPress={handleNext}
           activeOpacity={0.8}
         >
@@ -447,8 +608,8 @@ export default function AddSpotScreen({ navigation }) {
   const renderStep3 = () => (
     <View style={styles.stepContentFull}>
       <View style={styles.locationHeader}>
-        <Text style={styles.stepTitle}>Pin the Location</Text>
-        <Text style={styles.stepSubtitle}>
+        <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>Pin the Location</Text>
+        <Text style={[styles.stepSubtitle, { color: colors.textMuted }]}>
           Tap on the map to place a pin at the exact location.
         </Text>
       </View>
@@ -475,7 +636,7 @@ export default function AddSpotScreen({ navigation }) {
               draggable
               onDragEnd={handleMapPress}
             >
-              <View style={styles.locationPin}>
+              <View style={[styles.locationPin, { backgroundColor: colors.primary }]}>
                 <Ionicons name="location" size={24} color="#FFFFFF" />
               </View>
             </Marker>
@@ -484,9 +645,9 @@ export default function AddSpotScreen({ navigation }) {
 
         {/* Instrukcja na mapie */}
         {!formData.latitude && (
-          <View style={styles.mapInstruction}>
-            <Ionicons name="hand-left" size={20} color="#1E1B4B" />
-            <Text style={styles.mapInstructionText}>
+          <View style={[styles.mapInstruction, { backgroundColor: colors.overlay }]}>
+            <Ionicons name="hand-left" size={20} color={colors.textPrimary} />
+            <Text style={[styles.mapInstructionText, { color: colors.textPrimary }]}>
               Tap on the map to place a pin
             </Text>
           </View>
@@ -494,9 +655,9 @@ export default function AddSpotScreen({ navigation }) {
 
         {/* Wybrany adres / współrzędne */}
         {formData.latitude && (
-          <View style={styles.coordinatesBadge}>
+          <View style={[styles.coordinatesBadge, { backgroundColor: colors.overlay }]}>
             <Ionicons name="checkmark-circle" size={18} color="#059669" />
-            <Text style={styles.coordinatesText}>
+            <Text style={[styles.coordinatesText, { color: colors.textPrimary }]}>
               📍 {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
             </Text>
           </View>
@@ -506,11 +667,11 @@ export default function AddSpotScreen({ navigation }) {
       {/* Pole adresu (opcjonalne) */}
       <View style={styles.addressInputContainer}>
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Address (optional)</Text>
+          <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Address (optional)</Text>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
             placeholder="e.g. ul. Floriańska 15, Kraków"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.textMuted}
             value={formData.address}
             onChangeText={(text) => updateField('address', text)}
           />
@@ -520,24 +681,32 @@ export default function AddSpotScreen({ navigation }) {
       {/* Przyciski nawigacji */}
       <View style={[styles.buttonRow, styles.buttonRowBottom]}>
         <TouchableOpacity
-          style={styles.secondaryButton}
+          style={[styles.secondaryButton, { backgroundColor: colors.chipBg }]}
           onPress={handleBack}
           activeOpacity={0.7}
         >
-          <Ionicons name="arrow-back" size={20} color="#1E1B4B" />
-          <Text style={styles.secondaryButtonText}>Back</Text>
+          <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
+          <Text style={[styles.secondaryButtonText, { color: colors.textPrimary }]}>Back</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[
             styles.submitButton,
-            (!formData.latitude || !formData.longitude) && styles.primaryButtonDisabled,
+            { backgroundColor: colors.primary, shadowColor: colors.primary },
+            (!formData.latitude || !formData.longitude || isSubmitting) && styles.primaryButtonDisabled,
           ]}
           onPress={handleSubmit}
+          disabled={!formData.latitude || !formData.longitude || isSubmitting}
           activeOpacity={0.8}
         >
-          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-          <Text style={styles.primaryButtonText}>Submit</Text>
+          {isSubmitting ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+              <Text style={styles.primaryButtonText}>Submit</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -558,27 +727,27 @@ export default function AddSpotScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Nagłówek z przyciskiem zamykania */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.borderLight }]}>
           <TouchableOpacity
-            style={styles.closeButton}
+            style={[styles.closeButton, { backgroundColor: colors.chipBg }]}
             onPress={handleClose}
             activeOpacity={0.7}
           >
-            <Ionicons name="close" size={24} color="#1E1B4B" />
+            <Ionicons name="close" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Add New Spot</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Add New Spot</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         {/* Nagłówek kroku */}
         <View style={styles.stepHeaderContainer}>
-          <Text style={styles.stepCounter}>
+          <Text style={[styles.stepCounter, { color: colors.textMuted }]}>
             Step {currentStep + 1} of {STEPS.length}
           </Text>
         </View>
@@ -743,27 +912,63 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
-    color: '#1E1B4B',
   },
   textArea: {
-    minHeight: 100,
+    height: 100,
     paddingTop: 14,
   },
 
-  // ─── Category Buttons ───
+  // Zdjęcie
+  imageUploadBox: {
+    height: 140,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  imageUploadText: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  imagePreviewContainer: {
+    height: 160,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+    marginBottom: 8,
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Category Selectors ───
   categoryRow: {
     flexDirection: 'row',
-    gap: 10,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
   },
   categoryButton: {
-    flex: 1,
+    width: '48%',
     backgroundColor: '#FFFFFF',
     borderWidth: 2,
     borderColor: '#E5E7EB',

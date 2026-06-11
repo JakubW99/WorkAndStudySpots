@@ -6,7 +6,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 
 // Ekrany
 import MapScreen from '../screens/MapScreen';
@@ -21,15 +21,18 @@ const Tab = createBottomTabNavigator();
 
 // Bottom Tab Navigator — główne zakładki
 function MainTabs() {
+  const { colors, isDarkMode } = useTheme();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textMuted,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
-          backgroundColor: 'white',
-          borderTopWidth: 0,
+          backgroundColor: isDarkMode ? '#1A1833' : 'white',
+          borderTopWidth: isDarkMode ? 1 : 0,
+          borderTopColor: colors.border,
           elevation: 10,
           shadowColor: '#000',
           shadowOpacity: 0.1,

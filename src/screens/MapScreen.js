@@ -1,114 +1,235 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, Image, Dimensions, Platform } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, Image, Dimensions, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
+import { getAllSpots } from '../services/spotsService';
 
 // Metro automatycznie wybierze:
 // - MapViewComponent.native.js na iOS/Android
 // - MapViewComponent.web.js na webie
 import MapViewComponent from '../components/MapViewComponent';
 
-// Tymczasowe dane symulujące bazę (widok ze screena)
-const DUMMY_SPOTS = [
-  {
-    id: '1',
-    name: 'Analog Coffee',
-    desc: 'Cozy roastery with large tables',
-    lat: 50.0614,
-    lng: 19.9365,
-    rating: 4.8,
-    wifi: '120Mbps',
-    outlets: 'Ample',
-    type: 'cafe',
-    imageUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=200&auto=format&fit=crop'
-  },
-  { id: '2', lat: 50.0650, lng: 19.9400, type: 'library', name: 'Central Library', desc: 'Quiet reading rooms', rating: 4.5, wifi: '50Mbps', outlets: 'Limited' },
-  { id: '3', lat: 50.0580, lng: 19.9300, type: 'cafe', name: 'The Grind', desc: 'Great espresso bar', rating: 4.3, wifi: '80Mbps', outlets: 'Plenty' },
-];
+// Awaryjne dane usunięte - korzystamy ze zmockowanego spotsService.js
 
 const FILTERS = ['Fast Wi-Fi', 'Outlets', 'Quiet', '$'];
 
+// Map filter labels to their corresponding Ionicon names
+const FILTER_ICONS = {
+  'Fast Wi-Fi': 'wifi',
+  'Outlets': 'power',
+  'Quiet': 'volume-mute',
+  '$': 'cash-outline',
+};
+
+/**
+ * Extracts a numeric Mbps value from wifi strings like '120Mbps', '50Mbps', etc.
+ * Returns 0 for non-numeric values unless the string is 'Fast'.
+ */
+function parseWifiSpeed(wifi) {
+  if (!wifi) return 0;
+  if (wifi === 'Fast') return 100; // treat 'Fast' as >= 80
+  const match = wifi.match(/(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+/**
+ * Returns true if a spot passes all currently active filters.
+ */
+function spotMatchesFilters(spot, activeFilters) {
+  for (const filter of activeFilters) {
+    switch (filter) {
+      case 'Fast Wi-Fi':
+        if (parseWifiSpeed(spot.wifi) < 80 && spot.wifi !== 'Fast') return false;
+        break;
+      case 'Outlets':
+        if (!['Ample', 'Plenty', 'Plentiful', 'Yes'].includes(spot.outlets)) return false;
+        break;
+      case 'Quiet':
+        if (spot.noise !== 'Silent' && spot.noise !== 'Quiet') return false;
+        break;
+      case '$':
+        // Placeholder — no filtering applied
+        break;
+      default:
+        break;
+    }
+  }
+  return true;
+}
+
 export default function MapScreen({ navigation }) {
-  const [selectedSpot, setSelectedSpot] = useState(DUMMY_SPOTS[0]);
+  const { colors } = useTheme();
+  const [spotsData, setSpotsData] = useState([]);
+  const [selectedSpot, setSelectedSpot] = useState(null);
+  const [activeFilters, setActiveFilters] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Pobranie miejsc z Firestore
+  useEffect(() => {
+    const fetchSpots = async () => {
+      try {
+        const spots = await getAllSpots();
+        setSpotsData(spots);
+        if (spots.length > 0) {
+          setSelectedSpot(spots[0]);
+        }
+      } catch (e) {
+        console.warn('Nie udalo sie pobrac miejsc', e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Dodanie nasluchiwania na focus z React Navigation aby odswiezac mape
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchSpots();
+    });
+
+    fetchSpots();
+    return unsubscribe;
+  }, [navigation]);
+
+  /** Toggle a filter on/off in the active set */
+  const toggleFilter = (filter) => {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(filter)) {
+        next.delete(filter);
+      } else {
+        next.add(filter);
+      }
+      return next;
+    });
+  };
+
+  /** Memoised list of spots that pass all active filters and search query */
+  const filteredSpots = useMemo(() => {
+    let result = spotsData;
+    
+    if (activeFilters.size > 0) {
+      result = result.filter((spot) => spotMatchesFilters(spot, activeFilters));
+    }
+    
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((spot) => 
+        (spot.name && spot.name.toLowerCase().includes(query)) ||
+        (spot.description && spot.description.toLowerCase().includes(query)) ||
+        (spot.address && spot.address.toLowerCase().includes(query))
+      );
+    }
+    
+    return result;
+  }, [activeFilters, spotsData, searchQuery]);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* 1. Mapa (native) lub fallback (web) — wybierane automatycznie */}
       <MapViewComponent
-        spots={DUMMY_SPOTS}
+        spots={filteredSpots}
         selectedSpot={selectedSpot}
         onSelectSpot={setSelectedSpot}
         onMapPress={() => setSelectedSpot(null)}
       />
 
-      {/* 2. Górna sekcja: Szukajka i Filtry */}
-      <View style={[styles.topOverlay, Platform.OS === 'web' && styles.topOverlayWeb]}>
-        <View style={styles.searchBar}>
-          <Ionicons name="locate-outline" size={24} color="#666" style={styles.searchIcon} />
-          <TextInput 
-            style={styles.searchInput} 
-            placeholder="Search areas or spot names..." 
-            placeholderTextColor="#999"
+      {/* 2. Gorna sekcja: Szukajka i Filtry */}
+      <View style={[styles.topOverlay, Platform.OS === 'web' && [styles.topOverlayWeb, { backgroundColor: colors.subtleBg }]]}>
+        <View style={[styles.searchBar, { backgroundColor: colors.card, shadowColor: colors.cardShadow }]}>
+          <Ionicons name="locate-outline" size={24} color={colors.textMuted} style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.textPrimary }]}
+            placeholder="Search areas or spot names..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
-          <TouchableOpacity style={styles.filterButton}>
-            <Ionicons name="options-outline" size={24} color="#1E1B4B" />
+          <TouchableOpacity style={[styles.filterButton, { borderLeftColor: colors.borderLight }]}>
+            <Ionicons name="options-outline" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
-          {FILTERS.map((filter, index) => (
-            <TouchableOpacity 
-              key={index} 
-              style={[styles.filterChip, index === 0 && styles.filterChipActive]}
-            >
-              {index === 0 && <Ionicons name="wifi" size={16} color="white" style={{marginRight: 6}} />}
-              {index === 1 && <Ionicons name="power" size={16} color="#666" style={{marginRight: 6}} />}
-              {index === 2 && <Ionicons name="volume-mute" size={16} color="#666" style={{marginRight: 6}} />}
-              <Text style={[styles.filterText, index === 0 && styles.filterTextActive]}>{filter}</Text>
-            </TouchableOpacity>
-          ))}
+          {FILTERS.map((filter) => {
+            const isActive = activeFilters.has(filter);
+            return (
+              <TouchableOpacity
+                key={filter}
+                style={[
+                  styles.filterChip,
+                  { backgroundColor: colors.card, shadowColor: colors.cardShadow },
+                  isActive && { backgroundColor: colors.primary },
+                ]}
+                onPress={() => toggleFilter(filter)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={FILTER_ICONS[filter]}
+                  size={16}
+                  color={isActive ? '#FFFFFF' : colors.textMuted}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={[styles.filterText, { color: colors.textPrimary }, isActive && styles.filterTextActive]}>
+                  {filter}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
-      {/* 3. Dolna karta wyświetlana po zaznaczeniu miejsca */}
+      {/* 3. Dolna karta wyswietlana po zaznaczeniu miejsca */}
       {selectedSpot && selectedSpot.name && (
         <TouchableOpacity
-          style={[styles.bottomCard, Platform.OS === 'web' && styles.bottomCardWeb]}
+          style={[
+            styles.bottomCard,
+            { backgroundColor: colors.card, shadowColor: colors.cardShadow },
+            Platform.OS === 'web' && styles.bottomCardWeb,
+          ]}
           activeOpacity={0.9}
           onPress={() => navigation.navigate('SpotDetail', { spotId: selectedSpot.id })}
         >
           {selectedSpot.imageUrl && (
             <Image source={{ uri: selectedSpot.imageUrl }} style={styles.cardImage} />
           )}
-          
+
           <View style={styles.cardContent}>
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{selectedSpot.name}</Text>
+              <Text style={[styles.cardTitle, { color: colors.primary }]}>{selectedSpot.name}</Text>
             </View>
-            <Text style={styles.cardDesc}>{selectedSpot.desc}</Text>
-            
+            <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>{selectedSpot.desc || selectedSpot.description}</Text>
+
             <View style={styles.badgesRow}>
-               <View style={styles.badge}>
-                 <Ionicons name="wifi" size={14} color="#059669" />
-                 <Text style={styles.badgeTextGreen}>{selectedSpot.wifi}</Text>
+               <View style={[styles.badge, { backgroundColor: colors.chipBg }]}>
+                 <Ionicons name="wifi" size={14} color={colors.success} />
+                 <Text style={[styles.badgeTextGreen, { color: colors.success }]}>{selectedSpot.wifi}</Text>
                </View>
                <View style={styles.badgeTransparent}>
-                 <Ionicons name="power" size={14} color="#666" />
-                 <Text style={styles.badgeText}>{selectedSpot.outlets}</Text>
+                 <Ionicons name="power" size={14} color={colors.textMuted} />
+                 <Text style={[styles.badgeText, { color: colors.textMuted }]}>{selectedSpot.outlets}</Text>
                </View>
             </View>
           </View>
-          
+
           {/* Ocena */}
-          <View style={styles.ratingBadge}>
+          <View style={[styles.ratingBadge, { backgroundColor: colors.card }]}>
             <Ionicons name="star" size={12} color="#F59E0B" />
-            <Text style={styles.ratingText}>{selectedSpot.rating}</Text>
+            <Text style={[styles.ratingText, { color: colors.textPrimary }]}>{selectedSpot.rating}</Text>
           </View>
         </TouchableOpacity>
       )}
 
       {/* FAB — Dodaj nowe miejsce */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: colors.primary }]}
         activeOpacity={0.8}
         onPress={() => navigation.navigate('AddSpot')}
       >
@@ -123,7 +244,7 @@ const styles = StyleSheet.create({
 
   // Top Overlay (Search & Filters)
   topOverlay: { position: 'absolute', top: 60, width: '100%', paddingHorizontal: 20, zIndex: 10 },
-  topOverlayWeb: { position: 'relative', top: 0, paddingTop: 20, backgroundColor: '#F8F9FA' },
+  topOverlayWeb: { position: 'relative', top: 0, paddingTop: 20 },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: 'white',
     borderRadius: 30, paddingHorizontal: 15, height: 55,
@@ -132,7 +253,7 @@ const styles = StyleSheet.create({
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, fontSize: 16, color: '#333' },
   filterButton: { padding: 5, borderLeftWidth: 1, borderLeftColor: '#eee', paddingLeft: 15 },
-  
+
   // Filters
   filtersScroll: { marginTop: 15, flexDirection: 'row' },
   filterChip: {
@@ -158,7 +279,7 @@ const styles = StyleSheet.create({
   cardContent: { flex: 1 },
   cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E1B4B' },
   cardDesc: { color: '#666', fontSize: 13, marginTop: 4, marginBottom: 10 },
-  
+
   badgesRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ECFDF5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, gap: 4 },
   badgeTransparent: { flexDirection: 'row', alignItems: 'center', gap: 4 },

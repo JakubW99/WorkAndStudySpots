@@ -16,8 +16,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { signUp } from '../services/authService';
+import { useTheme } from '../context/ThemeContext';
 
 export default function RegisterScreen({ navigation }) {
+  const { colors, isDarkMode } = useTheme();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -84,7 +86,7 @@ export default function RegisterScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -96,22 +98,22 @@ export default function RegisterScreen({ navigation }) {
         >
           {/* Przycisk wstecz */}
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: colors.card }]}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color="#1E1B4B" />
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
 
           {/* Nagłówek */}
           <View style={styles.headerSection}>
-            <Text style={styles.headerTitle}>Utwórz konto</Text>
-            <Text style={styles.headerSubtitle}>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Utwórz konto</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
               Dołącz do społeczności i odkrywaj najlepsze miejsca do pracy
             </Text>
           </View>
 
           {/* Formularz rejestracji */}
-          <View style={styles.formSection}>
+          <View style={[styles.formSection, { backgroundColor: colors.card }]}>
             {/* Komunikat błędu */}
             {error ? (
               <View style={styles.errorContainer}>
@@ -121,12 +123,12 @@ export default function RegisterScreen({ navigation }) {
             ) : null}
 
             {/* Pole: Imię */}
-            <View style={styles.inputContainer}>
-              <Ionicons name="person-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+              <Ionicons name="person-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.textPrimary }]}
                 placeholder="Imię"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={displayName}
                 onChangeText={(text) => {
                   setDisplayName(text);
@@ -137,12 +139,12 @@ export default function RegisterScreen({ navigation }) {
             </View>
 
             {/* Pole: Email */}
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+              <Ionicons name="mail-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.textPrimary }]}
                 placeholder="Adres e-mail"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
@@ -155,12 +157,12 @@ export default function RegisterScreen({ navigation }) {
             </View>
 
             {/* Pole: Hasło */}
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+              <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.textPrimary }]}
                 placeholder="Hasło (min. 6 znaków)"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
@@ -175,18 +177,18 @@ export default function RegisterScreen({ navigation }) {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color="#9CA3AF"
+                  color={colors.textMuted}
                 />
               </TouchableOpacity>
             </View>
 
             {/* Pole: Potwierdź hasło */}
-            <View style={styles.inputContainer}>
-              <Ionicons name="shield-checkmark-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+              <Ionicons name="shield-checkmark-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { color: colors.textPrimary }]}
                 placeholder="Potwierdź hasło"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={confirmPassword}
                 onChangeText={(text) => {
                   setConfirmPassword(text);
@@ -201,7 +203,7 @@ export default function RegisterScreen({ navigation }) {
                 <Ionicons
                   name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color="#9CA3AF"
+                  color={colors.textMuted}
                 />
               </TouchableOpacity>
             </View>
@@ -209,7 +211,7 @@ export default function RegisterScreen({ navigation }) {
             {/* Wskaźnik siły hasła */}
             {password.length > 0 && (
               <View style={styles.passwordStrength}>
-                <View style={styles.strengthBarContainer}>
+                <View style={[styles.strengthBarContainer, { backgroundColor: colors.border }]}>
                   <View
                     style={[
                       styles.strengthBar,
@@ -237,7 +239,7 @@ export default function RegisterScreen({ navigation }) {
 
             {/* Przycisk rejestracji */}
             <TouchableOpacity
-              style={[styles.registerButton, isLoading && styles.registerButtonDisabled]}
+              style={[styles.registerButton, isLoading && styles.registerButtonDisabled, { backgroundColor: isDarkMode ? '#4338CA' : '#1E1B4B' }]}
               onPress={handleRegister}
               disabled={isLoading}
               activeOpacity={0.8}
@@ -252,9 +254,9 @@ export default function RegisterScreen({ navigation }) {
 
           {/* Link do logowania */}
           <View style={styles.bottomSection}>
-            <Text style={styles.bottomText}>Masz już konto? </Text>
+            <Text style={[styles.bottomText, { color: colors.textSecondary }]}>Masz już konto? </Text>
             <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Text style={styles.loginLink}>Zaloguj się</Text>
+              <Text style={[styles.loginLink, { color: colors.textPrimary }]}>Zaloguj się</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

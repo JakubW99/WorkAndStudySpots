@@ -16,77 +16,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { useFavorites } from '../context/FavoritesContext';
 import { signOut } from '../services/authService';
+import { getSpotsForUser, getSpotById } from '../services/spotsService';
+import { getReviewsForUser } from '../services/reviewsService';
 import { COLORS, FONTS } from '../theme/colors';
 
-// Dummy dane zapisanych miejsc
-const SAVED_SPOTS = [
-  {
-    id: 's1',
-    name: 'Kawiarnia Literacka',
-    category: 'cafe',
-    rating: 4.8,
-    distance: '0.4 km',
-    imageUrl: 'https://images.unsplash.com/photo-1550399105-c4db5fb85c18?q=80&w=400&auto=format&fit=crop',
-  },
-  {
-    id: 's2',
-    name: 'Central Public Library',
-    category: 'library',
-    rating: 4.5,
-    distance: '1.2 km',
-    imageUrl: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&w=400&auto=format&fit=crop',
-  },
-  {
-    id: 's3',
-    name: 'The Daily Grind Roasters',
-    category: 'cafe',
-    rating: 4.9,
-    distance: '0.8 km',
-    imageUrl: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=400&auto=format&fit=crop',
-  },
-];
+// Usunięto stałą ACTIVITY_DATA - dane pobierane są dynamicznie z serwisów
 
-// Dummy dane aktywności
-const ACTIVITY_DATA = [
-  {
-    id: 'a1',
-    type: 'review',
-    text: 'Napisałeś recenzję dla "Kawiarnia Literacka"',
-    rating: 5,
-    time: '2 godziny temu',
-    icon: 'chatbubble',
-  },
-  {
-    id: 'a2',
-    type: 'spot',
-    text: 'Dodałeś nowe miejsce "Workspace Hub"',
-    time: '1 dzień temu',
-    icon: 'add-circle',
-  },
-  {
-    id: 'a3',
-    type: 'review',
-    text: 'Napisałeś recenzję dla "Central Public Library"',
-    rating: 4,
-    time: '3 dni temu',
-    icon: 'chatbubble',
-  },
-  {
-    id: 'a4',
-    type: 'spot',
-    text: 'Dodałeś nowe miejsce "Silent Corner Cafe"',
-    time: '1 tydzień temu',
-    icon: 'add-circle',
-  },
-  {
-    id: 'a5',
-    type: 'saved',
-    text: 'Zapisałeś "The Daily Grind Roasters"',
-    time: '1 tydzień temu',
-    icon: 'bookmark',
-  },
-];
+
 
 // Ikona kategorii
 const getCategoryIcon = (category) => {
@@ -94,15 +33,89 @@ const getCategoryIcon = (category) => {
     case 'cafe': return 'cafe';
     case 'library': return 'book';
     case 'coworking': return 'laptop';
+    case 'outdoor': return 'leaf';
+    case 'university': return 'school';
+    case 'other': return 'location';
     default: return 'location';
   }
 };
 
 export default function ProfileScreen({ navigation }) {
   const { user, userData, userRole } = useAuth();
+  const { isDarkMode, toggleDarkMode, colors } = useTheme();
+  const { favorites, toggleFavorite } = useFavorites();
   const [activeTab, setActiveTab] = useState('saved');
-  const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
+  const [activities, setActivities] = useState([]);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(false);
+
+  // Pobranie prawdziwych aktywności użytkownika
+  React.useEffect(() => {
+    const fetchActivity = async () => {
+      if (!user?.uid) return;
+      setIsLoadingActivities(true);
+      try {
+        const userId = user.uid;
+        const userSpots = await getSpotsForUser(userId);
+        const userReviews = await getReviewsForUser(userId);
+
+        const activitiesArr = [];
+
+        // Przetworzenie miejsc
+        userSpots.forEach(s => {
+          activitiesArr.push({
+            id: `spot_${s.id}`,
+            type: 'spot',
+            text: `Dodałeś nowe miejsce "${s.name}"`,
+            createdAt: s.addedAt ? new Date(s.addedAt) : new Date(),
+            time: s.addedAt || 'Niedawno',
+            icon: 'add-circle',
+          });
+        });
+
+        // Przetworzenie recenzji
+        for (const r of userReviews) {
+          const spotInfo = await getSpotById(r.spotId);
+          activitiesArr.push({
+            id: `rev_${r.id}`,
+            type: 'review',
+            text: `Napisałeś recenzję dla "${spotInfo ? spotInfo.name : 'nieznanego miejsca'}"`,
+            rating: r.rating,
+            createdAt: r.createdAt ? new Date(r.createdAt) : new Date(),
+            time: new Date(r.createdAt || Date.now()).toLocaleDateString(),
+            icon: 'chatbubble',
+          });
+        }
+
+        // Dodanie zapisanych do aktywności
+        favorites.forEach(f => {
+          activitiesArr.push({
+            id: `fav_${f.id}`,
+            type: 'saved',
+            text: `Zapisałeś "${f.name}"`,
+            createdAt: new Date(Date.now() - 100000), // przykładowy czas dla favs
+            time: 'Zapisane',
+            icon: 'bookmark',
+          });
+        });
+
+        // Sortowanie najnowsze pierwsze
+        activitiesArr.sort((a, b) => b.createdAt - a.createdAt);
+        setActivities(activitiesArr);
+      } catch (e) {
+        console.warn('Error fetching activities:', e);
+      } finally {
+        setIsLoadingActivities(false);
+      }
+    };
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchActivity();
+    });
+
+    fetchActivity();
+    return unsubscribe;
+  }, [user, favorites, navigation]);
 
   // Obsługa wylogowania
   const handleLogout = () => {
@@ -122,25 +135,25 @@ export default function ProfileScreen({ navigation }) {
 
   // Renderowanie karty zapisanego miejsca
   const renderSavedSpot = (spot) => (
-    <TouchableOpacity key={spot.id} style={styles.savedCard} activeOpacity={0.7}>
+    <TouchableOpacity key={spot.id} style={[styles.savedCard, { backgroundColor: colors.card }]} activeOpacity={0.7}>
       <Image source={{ uri: spot.imageUrl }} style={styles.savedCardImage} />
       <View style={styles.savedCardContent}>
         <View style={styles.savedCardHeader}>
-          <View style={styles.categoryBadge}>
-            <Ionicons name={getCategoryIcon(spot.category)} size={12} color={COLORS.primary} />
-            <Text style={styles.categoryText}>{spot.category}</Text>
+          <View style={[styles.categoryBadge, { backgroundColor: colors.chipBg }]}>
+            <Ionicons name={getCategoryIcon(spot.category)} size={12} color={colors.primary} />
+            <Text style={[styles.categoryText, { color: colors.primary }]}>{spot.category}</Text>
           </View>
-          <TouchableOpacity>
-            <Ionicons name="bookmark" size={20} color={COLORS.accent} />
+          <TouchableOpacity onPress={() => toggleFavorite(spot)}>
+            <Ionicons name="bookmark" size={20} color={colors.accent} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.savedCardTitle}>{spot.name}</Text>
+        <Text style={[styles.savedCardTitle, { color: colors.textPrimary }]}>{spot.name}</Text>
         <View style={styles.savedCardFooter}>
           <View style={styles.ratingMini}>
-            <Ionicons name="star" size={14} color={COLORS.accent} />
-            <Text style={styles.ratingMiniText}>{spot.rating}</Text>
+            <Ionicons name="star" size={14} color={colors.accent} />
+            <Text style={[styles.ratingMiniText, { color: colors.textPrimary }]}>{spot.rating}</Text>
           </View>
-          <Text style={styles.distanceMini}>{spot.distance}</Text>
+          <Text style={[styles.distanceMini, { color: colors.textMuted }]}>{spot.distance}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -148,27 +161,27 @@ export default function ProfileScreen({ navigation }) {
 
   // Renderowanie elementu aktywności
   const renderActivityItem = (activity) => (
-    <View key={activity.id} style={styles.activityItem}>
+    <View key={activity.id} style={[styles.activityItem, { backgroundColor: colors.card }]}>
       <View style={[
         styles.activityIconWrap,
-        activity.type === 'review' && { backgroundColor: '#EEF2FF' },
-        activity.type === 'spot' && { backgroundColor: '#ECFDF5' },
-        activity.type === 'saved' && { backgroundColor: '#FFF7ED' },
+        activity.type === 'review' && { backgroundColor: colors.chipBg },
+        activity.type === 'spot' && { backgroundColor: colors.subtleBg },
+        activity.type === 'saved' && { backgroundColor: colors.chipBg },
       ]}>
         <Ionicons
           name={activity.icon}
           size={20}
           color={
-            activity.type === 'review' ? COLORS.primary :
-            activity.type === 'spot' ? COLORS.success :
-            COLORS.accent
+            activity.type === 'review' ? colors.primary :
+            activity.type === 'spot' ? colors.success :
+            colors.accent
           }
         />
       </View>
       <View style={styles.activityContent}>
-        <Text style={styles.activityText}>{activity.text}</Text>
+        <Text style={[styles.activityText, { color: colors.textPrimary }]}>{activity.text}</Text>
         <View style={styles.activityMeta}>
-          <Text style={styles.activityTime}>{activity.time}</Text>
+          <Text style={[styles.activityTime, { color: colors.textMuted }]}>{activity.time}</Text>
           {activity.rating && (
             <View style={styles.activityRating}>
               {[1, 2, 3, 4, 5].map(star => (
@@ -176,7 +189,7 @@ export default function ProfileScreen({ navigation }) {
                   key={star}
                   name={star <= activity.rating ? 'star' : 'star-outline'}
                   size={12}
-                  color={COLORS.accent}
+                  color={colors.accent}
                 />
               ))}
             </View>
@@ -189,56 +202,62 @@ export default function ProfileScreen({ navigation }) {
   // Element ustawień
   const renderSettingItem = ({ icon, label, rightComponent, onPress, danger }) => (
     <TouchableOpacity
-      style={styles.settingItem}
+      style={[styles.settingItem, { backgroundColor: colors.card }]}
       onPress={onPress}
       activeOpacity={onPress ? 0.6 : 1}
     >
-      <View style={[styles.settingIconWrap, danger && { backgroundColor: '#FEE2E2' }]}>
-        <Ionicons name={icon} size={20} color={danger ? COLORS.danger : COLORS.primary} />
+      <View style={[styles.settingIconWrap, { backgroundColor: colors.chipBg }, danger && { backgroundColor: '#FEE2E2' }]}>
+        <Ionicons name={icon} size={20} color={danger ? colors.danger : colors.primary} />
       </View>
-      <Text style={[styles.settingLabel, danger && { color: COLORS.danger }]}>{label}</Text>
+      <Text style={[styles.settingLabel, { color: colors.textPrimary }, danger && { color: colors.danger }]}>{label}</Text>
       <View style={styles.settingRight}>
         {rightComponent || (
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textMuted} />
+          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
         )}
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Nagłówek profilu */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.card, shadowColor: colors.cardShadow }]}>
           <View style={styles.headerTop}>
-            <Text style={styles.headerTitle}>Profile</Text>
-            <TouchableOpacity style={styles.editButton}>
-              <Ionicons name="create-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.editButtonText}>Edit</Text>
+            <Text style={[styles.headerTitle, { color: colors.primary }]}>Profile</Text>
+            <TouchableOpacity style={[styles.editButton, { backgroundColor: colors.chipBg }]}>
+              <Ionicons name="create-outline" size={20} color={colors.primary} />
+              <Text style={[styles.editButtonText, { color: colors.primary }]}>Edit</Text>
             </TouchableOpacity>
           </View>
 
           {/* Avatar i dane */}
           <View style={styles.profileInfo}>
             <View style={styles.avatarContainer}>
-              <Image source={{ uri: userData?.avatarUrl }} style={styles.avatar} />
-              <View style={styles.onlineIndicator} />
+              <Image 
+                source={{ 
+                  uri: userData?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || user?.email?.split('@')[0] || 'User')}&background=random&size=150` 
+                }} 
+                style={[styles.avatar, { borderColor: colors.accent }]} 
+              />
             </View>
             <View style={styles.profileDetails}>
-              <Text style={styles.displayName}>{user?.displayName}</Text>
-              <Text style={styles.email}>{user?.email}</Text>
+              <Text style={[styles.displayName, { color: colors.textPrimary }]}>{user?.displayName}</Text>
+              <Text style={[styles.email, { color: colors.textSecondary }]}>{user?.email}</Text>
               <View style={[
                 styles.roleBadge,
+                { backgroundColor: colors.chipBg },
                 userRole === 'admin' && styles.roleBadgeAdmin,
               ]}>
                 <Ionicons
                   name={userRole === 'admin' ? 'shield-checkmark' : 'person'}
                   size={12}
-                  color={userRole === 'admin' ? COLORS.accent : COLORS.primary}
+                  color={userRole === 'admin' ? colors.accent : colors.primary}
                 />
                 <Text style={[
                   styles.roleText,
-                  userRole === 'admin' && styles.roleTextAdmin,
+                  { color: colors.primary },
+                  userRole === 'admin' && { color: colors.accent },
                 ]}>
                   {userRole === 'admin' ? 'Admin' : 'User'}
                 </Text>
@@ -248,48 +267,48 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         {/* Statystyki */}
-        <View style={styles.statsContainer}>
+        <View style={[styles.statsContainer, { backgroundColor: colors.card, shadowColor: colors.cardShadow }]}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userData?.spotsAdded || 0}</Text>
-            <Text style={styles.statLabel}>Spots Added</Text>
+            <Text style={[styles.statNumber, { color: colors.primary }]}>{userData?.spotsAdded || 0}</Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>Spots Added</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{userData?.reviewsCount || 0}</Text>
-            <Text style={styles.statLabel}>Reviews</Text>
+            <Text style={[styles.statNumber, { color: colors.primary }]}>{userData?.reviewsCount || 0}</Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>Reviews</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{SAVED_SPOTS.length}</Text>
-            <Text style={styles.statLabel}>Saved</Text>
+            <Text style={[styles.statNumber, { color: colors.primary }]}>{favorites.length}</Text>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>Saved</Text>
           </View>
         </View>
 
         {/* Tabs: Saved / Activity */}
-        <View style={styles.tabsContainer}>
+        <View style={[styles.tabsContainer, { backgroundColor: colors.card, shadowColor: colors.cardShadow }]}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'saved' && styles.tabActive]}
+            style={[styles.tab, activeTab === 'saved' && [styles.tabActive, { backgroundColor: colors.chipActiveBg }]]}
             onPress={() => setActiveTab('saved')}
           >
             <Ionicons
               name={activeTab === 'saved' ? 'bookmark' : 'bookmark-outline'}
               size={18}
-              color={activeTab === 'saved' ? COLORS.primary : COLORS.textMuted}
+              color={activeTab === 'saved' ? colors.primary : colors.textMuted}
             />
-            <Text style={[styles.tabText, activeTab === 'saved' && styles.tabTextActive]}>
+            <Text style={[styles.tabText, { color: colors.textMuted }, activeTab === 'saved' && { color: colors.primary, fontWeight: '600' }]}>
               Saved
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'activity' && styles.tabActive]}
+            style={[styles.tab, activeTab === 'activity' && [styles.tabActive, { backgroundColor: colors.chipActiveBg }]]}
             onPress={() => setActiveTab('activity')}
           >
             <Ionicons
               name={activeTab === 'activity' ? 'time' : 'time-outline'}
               size={18}
-              color={activeTab === 'activity' ? COLORS.primary : COLORS.textMuted}
+              color={activeTab === 'activity' ? colors.primary : colors.textMuted}
             />
-            <Text style={[styles.tabText, activeTab === 'activity' && styles.tabTextActive]}>
+            <Text style={[styles.tabText, { color: colors.textMuted }, activeTab === 'activity' && { color: colors.primary, fontWeight: '600' }]}>
               Activity
             </Text>
           </TouchableOpacity>
@@ -298,23 +317,33 @@ export default function ProfileScreen({ navigation }) {
         {/* Zawartość aktywnej zakładki */}
         <View style={styles.tabContent}>
           {activeTab === 'saved' ? (
-            SAVED_SPOTS.length > 0 ? (
-              SAVED_SPOTS.map(renderSavedSpot)
+            favorites.length > 0 ? (
+              favorites.map(renderSavedSpot)
             ) : (
               <View style={styles.emptyState}>
-                <Ionicons name="bookmark-outline" size={48} color={COLORS.textMuted} />
-                <Text style={styles.emptyText}>Brak zapisanych miejsc</Text>
-                <Text style={styles.emptySubtext}>Zapisuj miejsca, by mieć je pod ręką</Text>
+                <Ionicons name="bookmark-outline" size={48} color={colors.textMuted} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Brak zapisanych miejsc</Text>
+                <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>Zapisuj miejsca, by mieć je pod ręką</Text>
               </View>
             )
           ) : (
-            ACTIVITY_DATA.length > 0 ? (
-              ACTIVITY_DATA.map(renderActivityItem)
+            isLoadingActivities ? (
+              <View style={styles.emptyState}>
+                <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>Ładowanie...</Text>
+              </View>
+            ) : activities.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 16, gap: 12 }}>
+                {activities.map((act) => (
+                  <View key={act.id} style={{ width: 280 }}>
+                    {renderActivityItem(act)}
+                  </View>
+                ))}
+              </ScrollView>
             ) : (
               <View style={styles.emptyState}>
-                <Ionicons name="time-outline" size={48} color={COLORS.textMuted} />
-                <Text style={styles.emptyText}>Brak aktywności</Text>
-                <Text style={styles.emptySubtext}>Twoja aktywność pojawi się tutaj</Text>
+                <Ionicons name="time-outline" size={48} color={colors.textMuted} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Brak aktywności</Text>
+                <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>Twoja aktywność pojawi się tutaj</Text>
               </View>
             )
           )}
@@ -322,7 +351,7 @@ export default function ProfileScreen({ navigation }) {
 
         {/* Ustawienia */}
         <View style={styles.settingsSection}>
-          <Text style={styles.sectionTitle}>Settings</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Settings</Text>
 
           {renderSettingItem({
             icon: 'notifications-outline',
@@ -331,8 +360,8 @@ export default function ProfileScreen({ navigation }) {
               <Switch
                 value={notifications}
                 onValueChange={setNotifications}
-                trackColor={{ false: COLORS.border, true: COLORS.primary }}
-                thumbColor={COLORS.white}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.white}
               />
             ),
           })}
@@ -342,10 +371,10 @@ export default function ProfileScreen({ navigation }) {
             label: 'Dark Mode',
             rightComponent: (
               <Switch
-                value={darkMode}
-                onValueChange={setDarkMode}
-                trackColor={{ false: COLORS.border, true: COLORS.primary }}
-                thumbColor={COLORS.white}
+                value={isDarkMode}
+                onValueChange={toggleDarkMode}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.white}
               />
             ),
           })}
@@ -366,7 +395,7 @@ export default function ProfileScreen({ navigation }) {
           {userRole === 'admin' && (
             <>
               <View style={styles.settingsDivider} />
-              <Text style={styles.sectionTitle}>Administration</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Administration</Text>
               {renderSettingItem({
                 icon: 'shield-checkmark-outline',
                 label: 'Admin Panel',
@@ -387,8 +416,8 @@ export default function ProfileScreen({ navigation }) {
 
         {/* Stopka */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>WorkAndStudySpots v1.0.0</Text>
-          <Text style={styles.footerSubtext}>
+          <Text style={[styles.footerText, { color: colors.textMuted }]}>WorkAndStudySpots v1.0.0</Text>
+          <Text style={[styles.footerSubtext, { color: colors.textMuted }]}>
             Member since {userData?.createdAt?.toDate?.()?.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' }) || '—'}
           </Text>
         </View>
@@ -458,17 +487,6 @@ const styles = StyleSheet.create({
     borderRadius: 38,
     borderWidth: 3,
     borderColor: COLORS.accent,
-  },
-  onlineIndicator: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: COLORS.success,
-    borderWidth: 3,
-    borderColor: COLORS.white,
   },
   profileDetails: {
     flex: 1,

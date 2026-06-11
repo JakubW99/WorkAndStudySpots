@@ -1,155 +1,93 @@
 // src/components/MapViewComponent.web.js
-// Komponent mapy dla wersji webowej (fallback)
-// react-native-maps nie obsługuje web — wyświetlamy stylizowaną listę miejsc
+// Komponent mapy dla wersji webowej z użyciem react-leaflet
 
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, View, Text, Platform } from 'react-native';
+import { MapContainer, TileLayer, Marker as LeafletMarker, useMapEvents, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import { useTheme } from '../context/ThemeContext';
 
-export default function MapViewComponent({ spots, selectedSpot, onSelectSpot }) {
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  // Add CSS only once
+  if (!document.getElementById('leaflet-css')) {
+    const style = document.createElement('style');
+    style.id = 'leaflet-css';
+    style.type = 'text/css';
+    style.innerHTML = `@import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');`;
+    document.head.appendChild(style);
+  }
+}
+
+// Ikony zależne od wybranego markera (z użyciem HTML+CSS dla Leaflet)
+const createIcon = (isSelected, color) => new L.divIcon({
+  html: `<div style="background-color: ${isSelected ? '#F59E0B' : 'white'}; width: 32px; height: 32px; border-radius: 16px; display: flex; justify-content: center; align-items: center; border: 2px solid ${isSelected ? 'white' : color}; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><svg width="18" height="18" viewBox="0 0 512 512" fill="${isSelected ? 'white' : color}"><path d="M256 32C167.67 32 96 96.51 96 176c0 128 160 304 160 304s160-176 160-304c0-79.49-71.67-144-160-144zm0 224a64 64 0 1164-64 64.07 64.07 0 01-64 64z"/></svg></div>`,
+  className: 'custom-leaflet-icon',
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+});
+
+function MapEvents({ onMapPress }) {
+  useMapEvents({
+    click(e) {
+      if (onMapPress) {
+        onMapPress({ nativeEvent: { coordinate: { latitude: e.latlng.lat, longitude: e.latlng.lng } } });
+      }
+    },
+  });
+  return null;
+}
+
+export default function MapViewComponent({ spots, selectedSpot, onSelectSpot, onMapPress }) {
+  const { colors, isDarkMode } = useTheme();
+
   return (
     <View style={styles.container}>
-      {/* Nagłówek z ikoną mapy */}
-      <View style={styles.header}>
-        <View style={styles.iconCircle}>
-          <Ionicons name="map" size={32} color="#FFFFFF" />
-        </View>
-        <Text style={styles.title}>Mapa miejsc</Text>
-        <Text style={styles.subtitle}>Mapa natywna dostępna w aplikacji mobilnej</Text>
-        <Text style={styles.subtitle}>Wybierz miejsce z listy poniżej</Text>
-      </View>
+      <MapContainer 
+        center={[50.0614, 19.9365]} 
+        zoom={13} 
+        style={{ width: '100%', height: '100%', zIndex: 0 }}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
+          url={isDarkMode 
+            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
+            : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
+        />
+        <MapEvents onMapPress={onMapPress} />
+        
+        {spots.map(spot => {
+          const isSelected = selectedSpot?.id === spot.id;
+          const lat = spot.latitude || spot.lat || 0;
+          const lng = spot.longitude || spot.lng || 0;
+          
+          if (lat === 0 && lng === 0) return null;
 
-      {/* Lista miejsc jako fallback */}
-      <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-        {spots.map(spot => (
-          <TouchableOpacity
-            key={spot.id}
-            style={[
-              styles.spotItem,
-              selectedSpot?.id === spot.id && styles.spotItemSelected,
-            ]}
-            onPress={() => onSelectSpot(spot)}
-            activeOpacity={0.7}
-          >
-            <View style={[
-              styles.spotIcon,
-              selectedSpot?.id === spot.id && styles.spotIconSelected,
-            ]}>
-              <Ionicons
-                name={spot.type === 'cafe' ? 'cafe' : 'book'}
-                size={20}
-                color={selectedSpot?.id === spot.id ? '#FFFFFF' : '#1E1B4B'}
-              />
-            </View>
-            <View style={styles.spotInfo}>
-              <Text style={styles.spotName}>{spot.name || 'Miejsce'}</Text>
-              {spot.desc ? <Text style={styles.spotDesc}>{spot.desc}</Text> : null}
-            </View>
-            {spot.rating && (
-              <View style={styles.spotRating}>
-                <Ionicons name="star" size={14} color="#F59E0B" />
-                <Text style={styles.spotRatingText}>{spot.rating}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+          return (
+            <LeafletMarker
+              key={spot.id}
+              position={[lat, lng]}
+              icon={createIcon(isSelected, colors.primary)}
+              eventHandlers={{
+                click: () => onSelectSpot(spot)
+              }}
+            >
+              <Popup closeButton={false}>
+                <View style={{ padding: 4 }}>
+                  <Text style={{ fontWeight: 'bold', fontSize: 14 }}>{spot.name}</Text>
+                  <Text style={{ fontSize: 12, color: '#6B7280' }}>{spot.category}</Text>
+                </View>
+              </Popup>
+            </LeafletMarker>
+          );
+        })}
+      </MapContainer>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: '#F0F2F5',
-  },
-  header: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: '#1E1B4B',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1E1B4B',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    padding: 20,
-    gap: 12,
-  },
-  spotItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  spotItemSelected: {
-    borderColor: '#1E1B4B',
-  },
-  spotIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#F0F0FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  spotIconSelected: {
-    backgroundColor: '#1E1B4B',
-  },
-  spotInfo: {
-    flex: 1,
-  },
-  spotName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E1B4B',
-  },
-  spotDesc: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  spotRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FFFBEB',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  spotRatingText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1E1B4B',
-  },
+  }
 });

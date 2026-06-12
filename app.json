@@ -25,7 +25,12 @@
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "shortName": "Work&Study",
+      "name": "Work and Study Spots",
+      "display": "standalone",
+      "themeColor": "#ffffff",
+      "backgroundColor": "#ffffff"
     }
   }
 }

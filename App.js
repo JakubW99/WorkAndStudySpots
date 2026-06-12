@@ -1,53 +1,89 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect } from 'react';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
+import * as NavigationBar from 'expo-navigation-bar';
 
-// Importujemy nasze ekrany
-import MapScreen from './src/screens/MapScreen';
-import ListScreen from './src/screens/ListScreen';
+// Nawigacja i kontekst
+import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { FavoritesProvider } from './src/context/FavoritesContext';
+import AppNavigator from './src/navigation/AppNavigator';
+import AuthNavigator from './src/navigation/AuthNavigator';
 
-const Tab = createBottomTabNavigator();
+// Komponent decydujący co wyświetlić (auth vs main)
+function RootNavigator() {
+  const { isLoggedIn, isLoading } = useAuth();
+  const { colors, isDarkMode } = useTheme();
 
-// Zaślepka dla ekranu profilu (zrobimy go później)
-const ProfileScreenDummy = () => null; 
+  // Zmiana natywnych kolorów Androida przy każdej zmianie trybu
+  useEffect(() => {
+    // Tło roota (pod klawiaturą)
+    SystemUI.setBackgroundColorAsync(colors.card).catch(() => { });
+    // Pasek nawigacyjny na dole (tylko na Androidzie)
+    if (Platform.OS === 'android') {
+      NavigationBar.setButtonStyleAsync(isDarkMode ? 'light' : 'dark').catch(() => { });
+    }
+  }, [colors.card, isDarkMode]);
 
-export default function App() {
+  // Ekran ładowania podczas sprawdzania stanu auth
+  if (isLoading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  // Odtwarzamy motyw dla React Navigation, aby systemowy kolor tła był spójny z naszym ThemeContext
+  const baseTheme = isDarkMode ? DarkTheme : DefaultTheme;
+  const customTheme = {
+    ...baseTheme,
+    colors: {
+      ...baseTheme.colors,
+      primary: colors.primary,
+      background: colors.background,
+      card: isDarkMode ? '#1A1833' : 'white',
+      text: colors.textPrimary,
+      border: colors.border,
+      notification: colors.primary,
+    },
+  };
+
+  // Jeśli niezalogowany → ekrany logowania/rejestracji (Łukasz)
+  // Jeśli zalogowany → AppNavigator ze Stack + Bottom Tabs (Jakub)
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          // Konfiguracja wyglądu dolnego paska z Twojego projektu
-          headerShown: false,
-          tabBarActiveTintColor: '#1E1B4B', // Ciemny granat z Twojego UI
-          tabBarInactiveTintColor: '#9CA3AF', // Szary
-          tabBarStyle: {
-            backgroundColor: 'white',
-            borderTopWidth: 0,
-            elevation: 10,
-            shadowColor: '#000',
-            shadowOpacity: 0.1,
-            shadowRadius: 10,
-            height: 80,
-            paddingBottom: 20, // Miejsce na pasek systemowy w iPhonie
-          },
-          tabBarIcon: ({ focused, color, size }) => {
-            let iconName;
-            if (route.name === 'Map') {
-              iconName = focused ? 'map' : 'map-outline';
-            } else if (route.name === 'List') {
-              iconName = focused ? 'list' : 'list-outline';
-            } else if (route.name === 'Profile') {
-              iconName = focused ? 'person' : 'person-outline';
-            }
-            return <Ionicons name={iconName} size={28} color={color} />;
-          },
-        })}
-      >
-        <Tab.Screen name="Map" component={MapScreen} />
-        <Tab.Screen name="List" component={ListScreen} />
-        <Tab.Screen name="Profile" component={ProfileScreenDummy} />
-      </Tab.Navigator>
+    <NavigationContainer theme={customTheme}>
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+      {isLoggedIn ? <AppNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );
 }
+
+// Główny komponent aplikacji
+// AuthProvider opakowuje całą aplikację, udostępniając kontekst użytkownika
+// ThemeProvider udostępnia tryb ciemny
+// FavoritesProvider zarządza ulubionymi
+// RootNavigator warunkowo renderuje AuthNavigator lub AppNavigator
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <FavoritesProvider>
+          <RootNavigator />
+        </FavoritesProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+});

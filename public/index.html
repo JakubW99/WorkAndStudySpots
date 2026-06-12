@@ -22,6 +22,12 @@
         height: 100%;
         flex: 1;
       }
+
+      /* Wymuszenie pobrania ikon bezpośrednio z zewnętrznego serwera, omijając lokalny błąd Metro/Netlify 404 */
+      @font-face {
+        font-family: 'Ionicons';
+        src: url('https://unpkg.com/react-native-vector-icons/Fonts/Ionicons.ttf') format('truetype');
+      }
     </style>
 
     <!-- Hotjar / ContentSquare Tracking Code -->

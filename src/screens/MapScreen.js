@@ -13,7 +13,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { getAllSpots } from '../services/spotsService';
 import {
@@ -44,6 +44,7 @@ const FILTER_ICONS = {
 
 
 export default function MapScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const { colors, isDarkMode } = useTheme();
   const [spotsData, setSpotsData] = useState([]);
   const [selectedSpot, setSelectedSpot] = useState(null);
@@ -403,7 +404,11 @@ export default function MapScreen({ navigation }) {
       />
 
       {/* 2. Gorna sekcja: Szukajka i Filtry */}
-      <View style={[styles.topOverlay, Platform.OS === 'web' && styles.topOverlayWeb]}>
+      <View style={[
+        styles.topOverlay, 
+        { top: Platform.OS === 'web' ? 0 : Math.max(insets.top + 10, 50) },
+        Platform.OS === 'web' && styles.topOverlayWeb
+      ]}>
         {/* Search bar — kliknięcie otwiera overlay */}
         <TouchableOpacity
           style={[styles.searchBar, { backgroundColor: colors.card, shadowColor: colors.cardShadow }]}

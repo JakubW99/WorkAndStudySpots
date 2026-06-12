@@ -59,6 +59,7 @@ export default function MapViewComponent({ spots, selectedSpot, onSelectSpot, on
       <MapContainer
         center={[50.0614, 19.9365]}
         zoom={13}
+        zoomControl={false}
         style={{ width: '100%', height: '100%', zIndex: 0 }}
       >
         <MapCenterer selectedSpot={selectedSpot} />
@@ -102,7 +103,9 @@ export default function MapViewComponent({ spots, selectedSpot, onSelectSpot, on
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#F0F2F5',
   }
 });

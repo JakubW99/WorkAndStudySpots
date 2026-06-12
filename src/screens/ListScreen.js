@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { StyleSheet, View, Text, FlatList, Image, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, FlatList, Image, TouchableOpacity, Platform, ActivityIndicator, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
@@ -52,9 +52,29 @@ export default function ListScreen({ navigation }) {
     }
   }, [activeFilter, spotsData]);
 
+  // Web grid — use numColumns on wide screens
+  const [numColumns, setNumColumns] = useState(() => {
+    if (Platform.OS !== 'web') return 1;
+    const w = Dimensions.get('window').width;
+    return w > 1100 ? 3 : w > 700 ? 2 : 1;
+  });
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const handler = ({ window }) => {
+      setNumColumns(window.width > 1100 ? 3 : window.width > 700 ? 2 : 1);
+    };
+    const sub = Dimensions.addEventListener('change', handler);
+    return () => sub?.remove();
+  }, []);
+
   const renderSpotCard = ({ item }) => (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.card }]}
+      style={[
+        styles.card,
+        { backgroundColor: colors.card },
+        Platform.OS === 'web' && numColumns > 1 && styles.cardWeb,
+      ]}
       activeOpacity={0.9}
       onPress={() => navigation.navigate('SpotDetail', { spotId: item.id })}
     >
@@ -130,10 +150,16 @@ export default function ListScreen({ navigation }) {
         </View>
       ) : (
         <FlatList
+          key={`flatlist-${numColumns}`}
           data={filteredSpots}
           keyExtractor={item => item.id}
           renderItem={renderSpotCard}
-          contentContainerStyle={styles.listContainer}
+          numColumns={numColumns}
+          contentContainerStyle={[
+            styles.listContainer,
+            Platform.OS === 'web' && styles.listContainerWeb,
+          ]}
+          columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -164,10 +190,15 @@ const styles = StyleSheet.create({
 
   // Lista i Karta
   listContainer: { padding: 20, paddingBottom: 100 },
+  listContainerWeb: { maxWidth: 1100, alignSelf: 'center', width: '100%', paddingBottom: 40 },
+  columnWrapper: { gap: 16 },
   card: {
     backgroundColor: 'white', borderRadius: 16, marginBottom: 20,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
     overflow: 'hidden'
+  },
+  cardWeb: {
+    flex: 1,
   },
   imageContainer: { position: 'relative' },
   cardImage: { width: '100%', height: 160, backgroundColor: '#E5E7EB' },

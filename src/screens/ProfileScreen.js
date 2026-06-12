@@ -12,6 +12,7 @@ import {
   Image,
   Switch,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -214,7 +215,7 @@ export default function ProfileScreen({ navigation }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={Platform.OS === 'web' ? styles.webScrollContent : undefined}>
         {/* Nagłówek profilu */}
         <View style={[styles.header, { backgroundColor: colors.card, shadowColor: colors.cardShadow }]}>
           <View style={styles.headerTop}>
@@ -424,6 +425,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  webScrollContent: {
+    maxWidth: 700,
+    width: '100%',
+    alignSelf: 'center',
   },
 
   // Nagłówek

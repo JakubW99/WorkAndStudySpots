@@ -5,6 +5,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { getAnalytics, isSupported } from 'firebase/analytics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
@@ -17,10 +18,19 @@ const firebaseConfig = {
   storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Inicjalizacja aplikacji Firebase
 const app = initializeApp(firebaseConfig);
+
+// Inicjalizacja Analytics (tylko w środowiskach, które to obsługują, np. Web)
+let analytics = null;
+isSupported().then((supported) => {
+  if (supported) {
+    analytics = getAnalytics(app);
+  }
+});
 
 // Inicjalizacja Auth — z odpowiednim persistence dla React Native
 let auth;
@@ -35,4 +45,4 @@ if (Platform.OS === 'web') {
 // Inicjalizacja Firestore
 const db = getFirestore(app);
 
-export { app, auth, db };
+export { app, auth, db, analytics };

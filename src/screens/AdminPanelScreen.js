@@ -12,6 +12,7 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -263,7 +264,7 @@ export default function AdminPanelScreen({ navigation }) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Nagłówek */}
-      <View style={[styles.header, { backgroundColor: colors.card }]}>
+      <View style={[styles.header, { backgroundColor: colors.card }, Platform.OS === 'web' && styles.headerWeb]}>
         <View style={styles.headerTop}>
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: colors.subtleBg }]}
@@ -327,7 +328,7 @@ export default function AdminPanelScreen({ navigation }) {
       {/* Lista miejsc */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, Platform.OS === 'web' && styles.scrollContentWeb]}
         showsVerticalScrollIndicator={false}
       >
         {filteredSpots.length > 0 ? (
@@ -377,6 +378,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 3,
+  },
+  headerWeb: {
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   headerTop: {
     flexDirection: 'row',
@@ -435,6 +443,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 40,
+  },
+  scrollContentWeb: {
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
   },
 
   // Karta miejsca

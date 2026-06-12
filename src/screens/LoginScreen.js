@@ -97,7 +97,7 @@ export default function LoginScreen({ navigation }) {
         style={styles.keyboardView}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, Platform.OS === 'web' && styles.scrollContentWeb]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -214,6 +214,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 40,
+  },
+  scrollContentWeb: {
+    maxWidth: 440,
+    width: '100%',
+    alignSelf: 'center',
+    paddingVertical: 60,
   },
 
   // Sekcja nagłówka (logo + tytuł)

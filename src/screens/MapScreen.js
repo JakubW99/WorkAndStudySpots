@@ -403,7 +403,7 @@ export default function MapScreen({ navigation }) {
       />
 
       {/* 2. Gorna sekcja: Szukajka i Filtry */}
-      <View style={[styles.topOverlay, Platform.OS === 'web' && [styles.topOverlayWeb, { backgroundColor: colors.subtleBg }]]}>
+      <View style={[styles.topOverlay, Platform.OS === 'web' && styles.topOverlayWeb]}>
         {/* Search bar — kliknięcie otwiera overlay */}
         <TouchableOpacity
           style={[styles.searchBar, { backgroundColor: colors.card, shadowColor: colors.cardShadow }]}
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
 
   // Top Overlay (Search & Filters)
   topOverlay: { position: 'absolute', top: 60, width: '100%', paddingHorizontal: 20, zIndex: 10 },
-  topOverlayWeb: { position: 'relative', top: 0, paddingTop: 20 },
+  topOverlayWeb: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 20, paddingHorizontal: 24, backgroundColor: 'transparent' },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: 'white',
     borderRadius: 30, paddingHorizontal: 15, height: 55,
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
   searchPlaceholder: { flex: 1, fontSize: 16, color: '#9CA3AF' },
 
   // Filters
-  filtersScroll: { marginTop: 15, flexDirection: 'row' },
+  filtersScroll: { marginTop: 15, flexDirection: 'row', marginBottom: 10},
   filterChip: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: 'white',
     paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, marginRight: 10,
@@ -551,7 +551,8 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
   },
   bottomCardWeb: {
-    position: 'relative', bottom: 0, margin: 20,
+    position: 'absolute', bottom: 20, left: 20, right: 20,
+    maxWidth: 400,
   },
   cardImage: { width: 80, height: 80, borderRadius: 16, marginRight: 15 },
   cardContent: { flex: 1 },

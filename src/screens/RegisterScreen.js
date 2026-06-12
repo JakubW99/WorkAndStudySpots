@@ -94,7 +94,7 @@ export default function RegisterScreen({ navigation }) {
         style={styles.keyboardView}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, Platform.OS === 'web' && styles.scrollContentWeb]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -279,6 +279,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 24,
     paddingVertical: 20,
+  },
+  scrollContentWeb: {
+    maxWidth: 440,
+    width: '100%',
+    alignSelf: 'center',
+    paddingVertical: 40,
+    justifyContent: 'center',
   },
 
   // Przycisk wstecz

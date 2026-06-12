@@ -169,6 +169,15 @@ export default function AddSpotScreen({ navigation }) {
   // Zamknięcie formularza
   const handleClose = () => {
     Keyboard.dismiss();
+
+    if (Platform.OS === 'web') {
+      const shouldClose = window.confirm('Zamknąć formularz? Niezapisane dane zostaną utracone.');
+      if (shouldClose && navigation && navigation.goBack) {
+        navigation.goBack();
+      }
+      return;
+    }
+
     setTimeout(() => {
       Alert.alert(
         'Zamknąć formularz?',
@@ -798,7 +807,7 @@ export default function AddSpotScreen({ navigation }) {
         behavior='padding'
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View>
+          <View style={Platform.OS === 'web' ? styles.webHeaderWrapper : undefined}>
             {/* Nagłówek z przyciskiem zamykania */}
             <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.borderLight }]}>
               <TouchableOpacity
@@ -825,7 +834,7 @@ export default function AddSpotScreen({ navigation }) {
         </TouchableWithoutFeedback>
 
         {/* Zawartość kroku z animacją */}
-        <Animated.View style={[styles.animatedContainer, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.animatedContainer, { opacity: fadeAnim }, Platform.OS === 'web' && styles.webAnimatedContainer]}>
           {renderCurrentStep()}
         </Animated.View>
       </KeyboardAvoidingView>
@@ -840,6 +849,16 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
+  },
+  webHeaderWrapper: {
+    maxWidth: 700,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  webAnimatedContainer: {
+    maxWidth: 700,
+    width: '100%',
+    alignSelf: 'center',
   },
 
   // ─── Header ───

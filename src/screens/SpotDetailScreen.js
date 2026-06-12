@@ -133,11 +133,11 @@ export default function SpotDetailScreen({ navigation, route }) {
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           bounces={true}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, Platform.OS === 'web' && styles.scrollContentWeb]}
           keyboardShouldPersistTaps="handled"
         >
           {/* ─── A) Hero Image z overlay ─── */}
-          <View style={styles.heroContainer}>
+          <View style={[styles.heroContainer, Platform.OS === 'web' && styles.heroContainerWeb]}>
             <Image source={{ uri: spot.imageUrl }} style={styles.heroImage} />
 
             {/* Gradient overlay od dołu */}
@@ -421,12 +421,22 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 20,
   },
+  scrollContentWeb: {
+    maxWidth: 800,
+    width: '100%',
+    alignSelf: 'center',
+  },
 
   // ─── Hero Image ───
   heroContainer: {
     width: SCREEN_WIDTH,
     height: 280,
     position: 'relative',
+  },
+  heroContainerWeb: {
+    width: '100%',
+    height: 340,
+    borderRadius: 0,
   },
   heroImage: {
     width: '100%',

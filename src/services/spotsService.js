@@ -122,7 +122,7 @@ export const addSpot = async (spotData, userId) => {
     address: spotData.address || 'Dodany adres',
     addressFull: spotData.address || 'Dodany adres',
     openNow: true,
-    hours: '8:00 AM - 8:00 PM',
+    hours: spotData.hours || '8:00 AM - 8:00 PM',
     addedBy: userId,
     status: spotData.status || 'approved', // z automatu approved jak chcial uzytkownik
     createdAt: new Date().toISOString(),

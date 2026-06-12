@@ -13,6 +13,8 @@ import {
   Platform,
   ActivityIndicator,
   Image,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import MapView, { Marker } from '../components/MapViewCompat';
@@ -21,6 +23,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { addSpot } from '../services/spotsService';
+import { CATEGORIES } from '../constants/categories';
+import { WIFI_OPTIONS, OUTLET_OPTIONS, NOISE_OPTIONS, CROWD_OPTIONS, PRICE_OPTIONS } from '../constants/spotOptions';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -31,16 +35,6 @@ const STEPS = [
   { key: 'location', title: 'Location Pin', icon: 'location' },
 ];
 
-// Opcje kategorii
-const CATEGORIES = [
-  { key: 'cafe', label: 'Cafe', emoji: '☕' },
-  { key: 'library', label: 'Library', emoji: '📚' },
-  { key: 'coworking', label: 'Coworking', emoji: '💼' },
-  { key: 'outdoor', label: 'Outdoor', emoji: '🌳' },
-  { key: 'university', label: 'School / Uni', emoji: '🎓' },
-  { key: 'other', label: 'Other', emoji: '📍' },
-];
-
 // Fikcyjne obrazki do "uploadu"
 const DUMMY_IMAGES = [
   'https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=400&auto=format&fit=crop', // cafe
@@ -49,12 +43,7 @@ const DUMMY_IMAGES = [
   'https://images.unsplash.com/photo-1556761175-5973dc0f32b7?q=80&w=400&auto=format&fit=crop', // coworking
 ];
 
-// Opcje udogodnień
-const WIFI_OPTIONS = ['Spotty', 'Reliable', 'Fast'];
-const OUTLET_OPTIONS = ['None', 'Limited', 'Plentiful'];
-const NOISE_OPTIONS = ['Silent', 'Chatter', 'Lively'];
-const CROWD_OPTIONS = ['Empty', 'Moderate', 'Busy', 'Packed'];
-const PRICE_OPTIONS = ['Free', '$', '$$', '$$$'];
+
 
 export default function AddSpotScreen({ navigation }) {
   // Motyw (dark mode)
@@ -73,7 +62,8 @@ export default function AddSpotScreen({ navigation }) {
     name: '',
     category: '',
     description: '',
-    hours: '',
+    openTime: '',
+    closeTime: '',
     imageUrl: '', // Fikcyjne zdjęcie
     // Step 2 — Amenities
     wifi: '',
@@ -95,22 +85,43 @@ export default function AddSpotScreen({ navigation }) {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Formatowanie czasu (HH:MM) bez wymuszania poprawek w locie
+  const handleTimeChange = (field, text) => {
+    let cleaned = text.replace(/[^\d]/g, '');
+    if (cleaned.length > 4) cleaned = cleaned.slice(0, 4);
+
+    if (cleaned.length > 2) {
+      cleaned = `${cleaned.slice(0, 2)}:${cleaned.slice(2)}`;
+    }
+    
+    updateField(field, cleaned);
+  };
+
   // Animowane przejście między krokami
   const animateTransition = (nextStep) => {
-    Animated.sequence([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
+    Keyboard.dismiss();
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setCurrentStep(nextStep);
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 150,
         useNativeDriver: true,
-      }),
-    ]).start();
+      }).start();
+    });
+  };
 
-    setTimeout(() => setCurrentStep(nextStep), 150);
+  // Walidacja godzin (jeśli wpisano cokolwiek)
+  const isTimeValid = (t) => {
+    if (!t) return false;
+    if (t.length !== 5) return false;
+    const [h, m] = t.split(':');
+    const hInt = parseInt(h, 10);
+    const mInt = parseInt(m, 10);
+    return hInt >= 0 && hInt <= 23 && mInt >= 0 && mInt <= 59;
   };
 
   // Przejście do następnego kroku
@@ -125,6 +136,20 @@ export default function AddSpotScreen({ navigation }) {
       if (!formData.category) {
         if (Platform.OS === 'web') window.alert('Wybierz kategorię miejsca.');
         else Alert.alert('Brak kategorii', 'Wybierz kategorię miejsca.');
+        return;
+      }
+      
+      if (formData.openTime || formData.closeTime) {
+        if (!isTimeValid(formData.openTime) || !isTimeValid(formData.closeTime)) {
+          if (Platform.OS === 'web') window.alert('Godziny otwarcia są nieprawidłowe. Wprowadź poprawne godziny od 00:00 do 23:59.');
+          else Alert.alert('Błędne godziny', 'Godziny otwarcia są nieprawidłowe. Wprowadź poprawne godziny od 00:00 do 23:59.');
+          return;
+        }
+      }
+    } else if (currentStep === 1) {
+      if (!formData.wifi || !formData.outlets || !formData.noise || !formData.crowdedness) {
+        if (Platform.OS === 'web') window.alert('Zaznacz wszystkie opcje udogodnień, aby kontynuować.');
+        else Alert.alert('Brakujące dane', 'Zaznacz wszystkie opcje udogodnień, aby kontynuować.');
         return;
       }
     }
@@ -143,9 +168,11 @@ export default function AddSpotScreen({ navigation }) {
 
   // Zamknięcie formularza
   const handleClose = () => {
-    Alert.alert(
-      'Zamknąć formularz?',
-      'Niezapisane dane zostaną utracone.',
+    Keyboard.dismiss();
+    setTimeout(() => {
+      Alert.alert(
+        'Zamknąć formularz?',
+        'Niezapisane dane zostaną utracone.',
       [
         { text: 'Anuluj', style: 'cancel' },
         {
@@ -159,6 +186,7 @@ export default function AddSpotScreen({ navigation }) {
         },
       ]
     );
+    }, 100);
   };
 
   // Wysłanie formularza
@@ -174,7 +202,11 @@ export default function AddSpotScreen({ navigation }) {
       // Dla celu podglądu natychmiastowych zmian wymuszam zmianę obiektu na 'approved'
       // aby od razu pojawił się na liście i mapie bez czekania na Panel Admina (który też zaimplementowaliśmy, ale user nie chce czekać).
       const userId = user?.uid || 'anonymous';
-      const augmentedData = { ...formData, status: 'approved' };
+      const augmentedData = { 
+        ...formData, 
+        hours: (formData.openTime && formData.closeTime) ? `${formData.openTime} - ${formData.closeTime}` : 'Hours not specified',
+        status: 'approved' 
+      };
       await addSpot(augmentedData, userId);
 
       // Pokazujemy alert i cofamy ekran, map i list uzywają listenera by zaktualizować się na focus()
@@ -209,6 +241,7 @@ export default function AddSpotScreen({ navigation }) {
 
   // Kliknięcie na mapę — postawienie pina
   const handleMapPress = (e) => {
+    Keyboard.dismiss();
     const { latitude, longitude } = e.nativeEvent.coordinate;
     updateField('latitude', latitude);
     updateField('longitude', longitude);
@@ -216,6 +249,7 @@ export default function AddSpotScreen({ navigation }) {
 
   // Przejście do konkretnego kroku (edycja ukończonego)
   const handleEditStep = (stepIndex) => {
+    Keyboard.dismiss();
     if (stepIndex < currentStep) {
       animateTransition(stepIndex);
     }
@@ -293,6 +327,7 @@ export default function AddSpotScreen({ navigation }) {
   const renderStep1 = () => (
     <ScrollView
       style={styles.stepContent}
+      contentContainerStyle={{ paddingBottom: 20 }}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
@@ -318,6 +353,7 @@ export default function AddSpotScreen({ navigation }) {
           <TouchableOpacity
             style={[styles.imageUploadBox, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
             onPress={() => {
+              Keyboard.dismiss();
               // Wybierz losowe fikcyjne zdjęcie
               const randomImg = DUMMY_IMAGES[Math.floor(Math.random() * DUMMY_IMAGES.length)];
               updateField('imageUrl', randomImg);
@@ -355,7 +391,10 @@ export default function AddSpotScreen({ navigation }) {
                 { backgroundColor: colors.inputBg, borderColor: colors.border },
                 formData.category === cat.key && [styles.categoryButtonActive, { borderColor: colors.primary, backgroundColor: colors.chipActiveBg }],
               ]}
-              onPress={() => updateField('category', cat.key)}
+              onPress={() => {
+                Keyboard.dismiss();
+                updateField('category', cat.key);
+              }}
               activeOpacity={0.7}
             >
               <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
@@ -376,13 +415,32 @@ export default function AddSpotScreen({ navigation }) {
       {/* Godziny otwarcia */}
       <View style={styles.inputGroup}>
         <Text style={[styles.inputLabel, { color: colors.textPrimary }]}>Opening Hours</Text>
-        <TextInput
-          style={[styles.textInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
-          placeholder="e.g. Mon-Fri 8:00 - 20:00"
-          placeholderTextColor={colors.textMuted}
-          value={formData.hours}
-          onChangeText={(text) => updateField('hours', text)}
-        />
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.subLabel, { color: colors.textSecondary }]}>Opens</Text>
+            <TextInput
+              style={[styles.textInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
+              placeholder="08:00"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="numeric"
+              maxLength={5}
+              value={formData.openTime}
+              onChangeText={(text) => handleTimeChange('openTime', text)}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.subLabel, { color: colors.textSecondary }]}>Closes</Text>
+            <TextInput
+              style={[styles.textInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.textPrimary }]}
+              placeholder="20:00"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="numeric"
+              maxLength={5}
+              value={formData.closeTime}
+              onChangeText={(text) => handleTimeChange('closeTime', text)}
+            />
+          </View>
+        </View>
       </View>
 
       {/* Opis */}
@@ -401,18 +459,20 @@ export default function AddSpotScreen({ navigation }) {
       </View>
 
       {/* Przycisk "Continue" */}
-      <TouchableOpacity
-        style={[
-          styles.primaryButton,
-          { backgroundColor: colors.primary, shadowColor: colors.primary },
-          (!formData.name.trim() || !formData.category) && styles.primaryButtonDisabled,
-        ]}
-        onPress={handleNext}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.primaryButtonText}>Continue</Text>
-        <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-      </TouchableOpacity>
+      <View style={styles.buttonRow}>
+        <TouchableOpacity
+          style={[
+            styles.primaryButton,
+            { backgroundColor: colors.primary, shadowColor: colors.primary },
+            (!formData.name.trim() || !formData.category || ((formData.openTime || formData.closeTime) && (!isTimeValid(formData.openTime) || !isTimeValid(formData.closeTime)))) && styles.primaryButtonDisabled,
+          ]}
+          onPress={handleNext}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.primaryButtonText}>Continue</Text>
+          <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 
@@ -420,7 +480,9 @@ export default function AddSpotScreen({ navigation }) {
   const renderStep2 = () => (
     <ScrollView
       style={styles.stepContent}
+      contentContainerStyle={{ paddingBottom: 20 }}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
       <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>Amenities & Vibe</Text>
       <Text style={[styles.stepSubtitle, { color: colors.textMuted }]}>
@@ -593,7 +655,11 @@ export default function AddSpotScreen({ navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.primaryButton, { backgroundColor: colors.primary, shadowColor: colors.primary }]}
+          style={[
+            styles.primaryButton, 
+            { backgroundColor: colors.primary, shadowColor: colors.primary },
+            (!formData.wifi || !formData.outlets || !formData.noise || !formData.crowdedness) && styles.primaryButtonDisabled,
+          ]}
           onPress={handleNext}
           activeOpacity={0.8}
         >
@@ -645,20 +711,19 @@ export default function AddSpotScreen({ navigation }) {
 
         {/* Instrukcja na mapie */}
         {!formData.latitude && (
-          <View style={[styles.mapInstruction, { backgroundColor: colors.overlay }]}>
-            <Ionicons name="hand-left" size={20} color={colors.textPrimary} />
-            <Text style={[styles.mapInstructionText, { color: colors.textPrimary }]}>
-              Tap on the map to place a pin
+          <View style={styles.mapInstruction}>
+            <Ionicons name="hand-left" size={20} color="#FFFFFF" />
+            <Text style={styles.mapInstructionText}>
+              Tap to place
             </Text>
           </View>
         )}
 
         {/* Wybrany adres / współrzędne */}
         {formData.latitude && (
-          <View style={[styles.coordinatesBadge, { backgroundColor: colors.overlay }]}>
-            <Ionicons name="checkmark-circle" size={18} color="#059669" />
-            <Text style={[styles.coordinatesText, { color: colors.textPrimary }]}>
-              📍 {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+          <View style={styles.mapInstruction}>
+            <Text style={styles.mapInstructionText}>
+              {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
             </Text>
           </View>
         )}
@@ -727,33 +792,37 @@ export default function AddSpotScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior='padding'
       >
-        {/* Nagłówek z przyciskiem zamykania */}
-        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.borderLight }]}>
-          <TouchableOpacity
-            style={[styles.closeButton, { backgroundColor: colors.chipBg }]}
-            onPress={handleClose}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="close" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Add New Spot</Text>
-          <View style={styles.headerSpacer} />
-        </View>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View>
+            {/* Nagłówek z przyciskiem zamykania */}
+            <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.borderLight }]}>
+              <TouchableOpacity
+                style={[styles.closeButton, { backgroundColor: colors.chipBg }]}
+                onPress={handleClose}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Add New Spot</Text>
+              <View style={styles.headerSpacer} />
+            </View>
 
-        {/* Nagłówek kroku */}
-        <View style={styles.stepHeaderContainer}>
-          <Text style={[styles.stepCounter, { color: colors.textMuted }]}>
-            Step {currentStep + 1} of {STEPS.length}
-          </Text>
-        </View>
+            {/* Nagłówek kroku */}
+            <View style={styles.stepHeaderContainer}>
+              <Text style={[styles.stepCounter, { color: colors.textMuted }]}>
+                Step {currentStep + 1} of {STEPS.length}
+              </Text>
+            </View>
 
-        {/* Pasek postępu */}
-        {renderProgressBar()}
+            {/* Pasek postępu */}
+            {renderProgressBar()}
+          </View>
+        </TouchableWithoutFeedback>
 
         {/* Zawartość kroku z animacją */}
         <Animated.View style={[styles.animatedContainer, { opacity: fadeAnim }]}>
@@ -917,6 +986,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
+  },
+  subLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 6,
+    marginLeft: 4,
   },
   textArea: {
     height: 100,
@@ -1141,48 +1216,24 @@ const styles = StyleSheet.create({
   mapInstruction: {
     position: 'absolute',
     top: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 12,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(30, 27, 75, 0.85)',
+    borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 6,
-    elevation: 3,
+    elevation: 4,
   },
   mapInstructionText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#1E1B4B',
-  },
-  coordinatesBadge: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  coordinatesText: {
-    fontSize: 14,
     fontWeight: '600',
-    color: '#1E1B4B',
+    color: '#FFFFFF',
   },
   addressInputContainer: {
     paddingHorizontal: 20,

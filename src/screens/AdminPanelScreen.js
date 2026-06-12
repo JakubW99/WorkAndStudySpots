@@ -2,7 +2,7 @@
 // Panel admina — moderacja miejsc (pending/approved/rejected)
 // Autor: Jakub
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -15,24 +15,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
 import { getSpotsAdmin, updateSpotStatus, deleteSpot } from '../services/spotsService';
+import { getCategoryIcon } from '../constants/categories';
 
 // Dummy dane usunięte - korzystamy z serwisu
-
-
-const getCategoryIcon = (category) => {
-  switch (category) {
-    case 'cafe': return 'cafe';
-    case 'library': return 'book';
-    case 'coworking': return 'laptop';
-    case 'outdoor': return 'leaf';
-    case 'university': return 'school';
-    case 'other': return 'location';
-    default: return 'location';
-  }
-};
 
 // Kolor statusu
 const getStatusColor = (status) => {
@@ -87,11 +74,17 @@ export default function AdminPanelScreen({ navigation }) {
     return unsubscribe;
   }, [navigation]);
 
-  // Filtrowanie po statusie
-  const filteredSpots = spots.filter(s => s.status === activeTab);
-  const pendingCount = spots.filter(s => s.status === 'pending').length;
-  const approvedCount = spots.filter(s => s.status === 'approved').length;
-  const rejectedCount = spots.filter(s => s.status === 'rejected').length;
+  // Filtrowanie po statusie — memoizowane
+  const { filteredSpots, pendingCount, approvedCount, rejectedCount } = useMemo(() => {
+    const counts = { pending: 0, approved: 0, rejected: 0 };
+    spots.forEach(s => { if (counts[s.status] !== undefined) counts[s.status]++; });
+    return {
+      filteredSpots: spots.filter(s => s.status === activeTab),
+      pendingCount: counts.pending,
+      approvedCount: counts.approved,
+      rejectedCount: counts.rejected,
+    };
+  }, [spots, activeTab]);
 
   // Zmiana statusu miejsca
   const handleStatusChange = (spotId, newStatus) => {
@@ -179,7 +172,7 @@ export default function AdminPanelScreen({ navigation }) {
         {/* Data */}
         <View style={styles.cardMeta}>
           <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
-          <Text style={[styles.cardMetaText, { color: colors.textMuted }]}>{spot.addedAt}</Text>
+          <Text style={[styles.cardMetaText, { color: colors.textMuted }]}>{spot.createdAt}</Text>
         </View>
 
         {/* Udogodnienia */}

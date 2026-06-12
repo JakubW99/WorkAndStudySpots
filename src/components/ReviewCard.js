@@ -1,11 +1,14 @@
 import React from 'react';
 import { StyleSheet, View, Text, Image } from 'react-native';
 import RatingStars from './RatingStars';
+import { useTheme } from '../context/ThemeContext';
 
 // Karta recenzji — wyświetla avatar, imię, czas, ocenę i komentarz
 export default function ReviewCard({ userName, timeAgo, rating, comment, avatarUrl }) {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.borderLight }]}>
       {/* Nagłówek: avatar + dane użytkownika */}
       <View style={styles.header}>
         <Image
@@ -14,8 +17,8 @@ export default function ReviewCard({ userName, timeAgo, rating, comment, avatarU
           defaultSource={{ uri: 'https://i.pravatar.cc/100?img=0' }}
         />
         <View style={styles.userInfo}>
-          <Text style={styles.userName}>{userName}</Text>
-          <Text style={styles.timeAgo}>{timeAgo}</Text>
+          <Text style={[styles.userName, { color: colors.textPrimary }]}>{userName}</Text>
+          <Text style={[styles.timeAgo, { color: colors.textMuted }]}>{timeAgo}</Text>
         </View>
       </View>
 
@@ -25,14 +28,13 @@ export default function ReviewCard({ userName, timeAgo, rating, comment, avatarU
       </View>
 
       {/* Tekst recenzji */}
-      <Text style={styles.comment}>{comment}</Text>
+      <Text style={[styles.comment, { color: colors.textSecondary }]}>{comment}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -42,7 +44,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
   },
   header: {
     flexDirection: 'row',
@@ -62,11 +63,9 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1E1B4B',
   },
   timeAgo: {
     fontSize: 12,
-    color: '#9CA3AF',
     marginTop: 2,
   },
   ratingRow: {
@@ -74,7 +73,6 @@ const styles = StyleSheet.create({
   },
   comment: {
     fontSize: 14,
-    color: '#4B5563',
     lineHeight: 20,
   },
 });

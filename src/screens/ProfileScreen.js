@@ -21,24 +21,10 @@ import { useFavorites } from '../context/FavoritesContext';
 import { signOut } from '../services/authService';
 import { getSpotsForUser, getSpotById } from '../services/spotsService';
 import { getReviewsForUser } from '../services/reviewsService';
-import { COLORS, FONTS } from '../theme/colors';
+import { COLORS } from '../theme/colors';
+import { getCategoryIcon } from '../constants/categories';
 
 // Usunięto stałą ACTIVITY_DATA - dane pobierane są dynamicznie z serwisów
-
-
-
-// Ikona kategorii
-const getCategoryIcon = (category) => {
-  switch (category) {
-    case 'cafe': return 'cafe';
-    case 'library': return 'book';
-    case 'coworking': return 'laptop';
-    case 'outdoor': return 'leaf';
-    case 'university': return 'school';
-    case 'other': return 'location';
-    default: return 'location';
-  }
-};
 
 export default function ProfileScreen({ navigation }) {
   const { user, userData, userRole } = useAuth();
@@ -73,19 +59,22 @@ export default function ProfileScreen({ navigation }) {
           });
         });
 
-        // Przetworzenie recenzji
-        for (const r of userReviews) {
-          const spotInfo = await getSpotById(r.spotId);
-          activitiesArr.push({
-            id: `rev_${r.id}`,
-            type: 'review',
-            text: `Napisałeś recenzję dla "${spotInfo ? spotInfo.name : 'nieznanego miejsca'}"`,
-            rating: r.rating,
-            createdAt: r.createdAt ? new Date(r.createdAt) : new Date(),
-            time: new Date(r.createdAt || Date.now()).toLocaleDateString(),
-            icon: 'chatbubble',
-          });
-        }
+        // Przetworzenie recenzji (równoległe zapytania zamiast sekwencyjnych)
+        const reviewActivities = await Promise.all(
+          userReviews.map(async (r) => {
+            const spotInfo = await getSpotById(r.spotId);
+            return {
+              id: `rev_${r.id}`,
+              type: 'review',
+              text: `Napisałeś recenzję dla "${spotInfo ? spotInfo.name : 'nieznanego miejsca'}"`,
+              rating: r.rating,
+              createdAt: r.createdAt ? new Date(r.createdAt) : new Date(),
+              time: new Date(r.createdAt || Date.now()).toLocaleDateString(),
+              icon: 'chatbubble',
+            };
+          })
+        );
+        activitiesArr.push(...reviewActivities);
 
         // Dodanie zapisanych do aktywności
         favorites.forEach(f => {
@@ -135,7 +124,12 @@ export default function ProfileScreen({ navigation }) {
 
   // Renderowanie karty zapisanego miejsca
   const renderSavedSpot = (spot) => (
-    <TouchableOpacity key={spot.id} style={[styles.savedCard, { backgroundColor: colors.card }]} activeOpacity={0.7}>
+    <TouchableOpacity 
+      key={spot.id} 
+      style={[styles.savedCard, { backgroundColor: colors.card }]} 
+      activeOpacity={0.7}
+      onPress={() => navigation.navigate('SpotDetail', { spotId: spot.id })}
+    >
       <Image source={{ uri: spot.imageUrl }} style={styles.savedCardImage} />
       <View style={styles.savedCardContent}>
         <View style={styles.savedCardHeader}>
@@ -520,9 +514,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.primary,
   },
-  roleTextAdmin: {
-    color: COLORS.accent,
-  },
+
 
   // Statystyki
   statsContainer: {
@@ -590,10 +582,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: COLORS.textMuted,
   },
-  tabTextActive: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
+
 
   // Zawartość zakładek
   tabContent: {

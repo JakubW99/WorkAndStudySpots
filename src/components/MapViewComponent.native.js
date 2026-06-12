@@ -2,17 +2,39 @@
 // Komponent mapy dla platform natywnych (iOS / Android)
 // Używa react-native-maps
 
-import React from 'react';
-import { StyleSheet, View, Platform } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { StyleSheet, View, Platform, Dimensions } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { darkMapStyle } from '../theme/mapStyles';
 
 export default function MapViewComponent({ spots, selectedSpot, onSelectSpot, onMapPress }) {
+  const { height } = Dimensions.get('window');
   const { isDarkMode } = useTheme();
+  const mapRef = useRef(null);
+
+  useEffect(() => {
+    if (selectedSpot && mapRef.current) {
+      const lat = selectedSpot.latitude || selectedSpot.lat;
+      const lng = selectedSpot.longitude || selectedSpot.lng;
+      if (lat && lng) {
+        mapRef.current.animateToRegion(
+          {
+            latitude: lat,
+            longitude: lng,
+            latitudeDelta: 0.015,
+            longitudeDelta: 0.015,
+          },
+          500
+        );
+      }
+    }
+  }, [selectedSpot]);
+
   return (
     <MapView
+      ref={mapRef}
       style={StyleSheet.absoluteFillObject}
       initialRegion={{
         latitude: 50.0614,
@@ -22,6 +44,9 @@ export default function MapViewComponent({ spots, selectedSpot, onSelectSpot, on
       }}
       onPress={onMapPress}
       showsUserLocation={true}
+      toolbarEnabled={false}
+      compassOffset={{ x: 20, y: height - 150 }}
+      mapPadding={{ bottom: 85, right: 10 }}
       customMapStyle={isDarkMode ? darkMapStyle : []}
       userInterfaceStyle={isDarkMode ? 'dark' : 'light'}
     >
@@ -40,14 +65,14 @@ export default function MapViewComponent({ spots, selectedSpot, onSelectSpot, on
               if (e && e.stopPropagation) e.stopPropagation();
               onSelectSpot(spot);
             }}
-            tracksViewChanges={Platform.OS === 'ios' ? true : false}
+          // Usunięto tracksViewChanges aby na Androidzie markery poprawnie się pojawiały
           >
-            <View 
-              style={[styles.markerContainer, isSelected && styles.markerSelected]} 
+            <View
+              style={[styles.markerContainer, isSelected && styles.markerSelected]}
               pointerEvents="none"
             >
               <Ionicons
-                name={spot.type === 'cafe' ? 'cafe' : spot.type === 'library' ? 'book' : 'location'}
+                name={spot.category === 'cafe' ? 'cafe' : spot.category === 'library' ? 'book' : 'location'}
                 size={16}
                 color={isSelected ? 'white' : '#1E1B4B'}
               />

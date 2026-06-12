@@ -8,10 +8,13 @@ import { MapContainer, TileLayer, Marker as LeafletMarker, useMapEvents } from '
 import L from 'leaflet';
 
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
-  const style = document.createElement('style');
-  style.type = 'text/css';
-  style.innerHTML = `@import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');`;
-  document.head.appendChild(style);
+  if (!document.getElementById('leaflet-css')) {
+    const style = document.createElement('style');
+    style.id = 'leaflet-css';
+    style.type = 'text/css';
+    style.innerHTML = `@import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');`;
+    document.head.appendChild(style);
+  }
 }
 
 // Niestandardowa ikona zapobiega problemowi ze ścieżkami w Leaflet + Webpack
@@ -70,9 +73,9 @@ export function Marker({ coordinate, onPress, draggable, onDragEnd }) {
   
   const handleDragEnd = (e) => {
     if (onDragEnd) {
-      const position = e.target.getLatLng();
+      const latlng = e.target.getLatLng();
       onDragEnd({
-        nativeEvent: { coordinate: { latitude: position.lat, longitude: position.lng } }
+        nativeEvent: { coordinate: { latitude: latlng.lat, longitude: latlng.lng } }
       });
     }
   };

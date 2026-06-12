@@ -1,24 +1,28 @@
 import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 // Kafelek udogodnienia — ikona na górze, label i wartość na dole
 export default function AmenityBadge({ icon, label, value, color = '#1E1B4B' }) {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.borderLight }]}>
       <View style={[styles.iconContainer, { backgroundColor: color + '1A' }]}>
         <Ionicons name={icon} size={22} color={color} />
       </View>
-      <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value}>{value}</Text>
+      <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
+      <Text style={[styles.value, { color: colors.textPrimary }]}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
+    minWidth: 100,
+    flexGrow: 1,
+    flexBasis: '30%',
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 12,
@@ -29,7 +33,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
   },
   iconContainer: {
     width: 44,
@@ -41,7 +44,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 11,
-    color: '#9CA3AF',
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -49,7 +51,6 @@ const styles = StyleSheet.create({
   },
   value: {
     fontSize: 14,
-    color: '#1E1B4B',
     fontWeight: '600',
   },
 });

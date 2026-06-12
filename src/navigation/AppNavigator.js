@@ -3,6 +3,7 @@
 // Autor: Jakub
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +28,7 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
@@ -37,8 +39,6 @@ function MainTabs() {
           shadowColor: '#000',
           shadowOpacity: 0.1,
           shadowRadius: 10,
-          height: 80,
-          paddingBottom: 20, // Miejsce na pasek systemowy w iPhonie
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;

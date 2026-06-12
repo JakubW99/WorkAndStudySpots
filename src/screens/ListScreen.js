@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { getAllSpots } from '../services/spotsService';
+import { matchesFastWifi, matchesQuiet } from '../utils/filters';
 
 // Dane usunięte - korzystamy ze zmockowanego spotsService.js
 
@@ -27,7 +28,7 @@ export default function ListScreen({ navigation }) {
         setIsLoading(false);
       }
     };
-    
+
     const unsubscribe = navigation.addListener('focus', () => {
       fetchSpots();
     });
@@ -40,11 +41,11 @@ export default function ListScreen({ navigation }) {
   const filteredSpots = useMemo(() => {
     switch (activeFilter) {
       case 'Fast Wi-Fi':
-        return spotsData.filter(spot => spot.wifi === 'Fast');
+        return spotsData.filter(spot => matchesFastWifi(spot));
       case 'Quiet':
-        return spotsData.filter(spot => spot.noise === 'Silent' || spot.noise === 'Quiet');
+        return spotsData.filter(spot => matchesQuiet(spot));
       case 'Open Now':
-        return spotsData;
+        return spotsData.filter(spot => spot.openNow === true);
       case 'All Spots':
       default:
         return spotsData;
@@ -101,7 +102,7 @@ export default function ListScreen({ navigation }) {
           data={FILTERS}
           keyExtractor={(item) => item}
           renderItem={({ item }) => (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
                 styles.filterChip,
                 { backgroundColor: colors.chipBg, borderColor: colors.border },
@@ -151,14 +152,13 @@ export default function ListScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
-  
+
   // Filtry
   filtersContainer: { paddingVertical: 10, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   filterChip: {
     backgroundColor: '#F3F4F6', paddingHorizontal: 16, paddingVertical: 8,
     borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: '#E5E7EB'
   },
-  filterChipActive: { backgroundColor: '#1E1B4B', borderColor: '#1E1B4B' },
   filterText: { color: '#4B5563', fontWeight: '500' },
   filterTextActive: { color: 'white', fontWeight: '600' },
 
@@ -177,20 +177,19 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
   },
   ratingText: { fontSize: 12, fontWeight: 'bold', color: '#1E1B4B', marginLeft: 4 },
-  
+
   cardContent: { padding: 16, position: 'relative' },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#1E1B4B', flex: 1, marginRight: 10 },
   distanceText: { fontSize: 13, color: '#6B7280', marginTop: 3 },
-  cardDesc: { color: '#4B5563', fontSize: 14, marginTop: 8, marginBottom: 16 },
-  
+
   badgesRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   badgeText: { color: '#1E1B4B', fontSize: 13, fontWeight: '500' },
 
   // FAB — przycisk dodawania miejsca
   fab: {
-    position: 'absolute', bottom: 100, right: 24,
+    position: 'absolute', bottom: 20, right: 24,
     width: 56, height: 56, borderRadius: 28,
     backgroundColor: '#1E1B4B', justifyContent: 'center', alignItems: 'center',
     shadowColor: '#1E1B4B', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8,

@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,6 +59,7 @@ export default function RegisterScreen({ navigation }) {
 
   // Obsługa rejestracji
   const handleRegister = async () => {
+    Keyboard.dismiss();
     if (!validate()) return;
 
     setIsLoading(true);
@@ -88,7 +90,7 @@ export default function RegisterScreen({ navigation }) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior='padding'
         style={styles.keyboardView}
       >
         <ScrollView

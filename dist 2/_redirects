@@ -1,0 +1,5 @@
+# Przekierowanie requestów fontów z głębokiej ścieżki node_modules na płaską
+/assets/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/:font  /fonts/:font  200
+
+# SPA fallback — wszystkie niezdefiniowane ścieżki wracają do index.html
+/*  /index.html  200

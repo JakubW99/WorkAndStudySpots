@@ -406,8 +406,9 @@ export default function MapScreen({ navigation }) {
       {/* 2. Gorna sekcja: Szukajka i Filtry */}
       <View style={[
         styles.topOverlay, 
-        { top: Platform.OS === 'web' ? 0 : Math.max(insets.top + 10, 50) },
-        Platform.OS === 'web' && styles.topOverlayWeb
+        Platform.OS === 'web' 
+          ? styles.topOverlayWeb 
+          : { top: Math.max(insets.top + 10, 50) },
       ]}>
         {/* Search bar — kliknięcie otwiera overlay */}
         <TouchableOpacity
@@ -529,7 +530,7 @@ const styles = StyleSheet.create({
 
   // Top Overlay (Search & Filters)
   topOverlay: { position: 'absolute', top: 60, width: '100%', paddingHorizontal: 20, zIndex: 10 },
-  topOverlayWeb: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 20, paddingHorizontal: 24, backgroundColor: 'transparent' },
+  topOverlayWeb: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 16, paddingHorizontal: 24, backgroundColor: 'transparent' },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: 'white',
     borderRadius: 30, paddingHorizontal: 15, height: 55,

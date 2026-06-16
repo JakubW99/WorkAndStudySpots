@@ -22,7 +22,6 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 
       body {
         margin: 0;
-        padding: 0;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
@@ -33,6 +32,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
         display: flex;
         flex-direction: column;
         height: 100vh;
+        height: 100dvh; /* dynamic viewport height — fixes bottom tabs cut off by mobile browser chrome */
         width: 100vw;
         overflow: hidden;
       }
@@ -75,6 +75,35 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
       }
     `;
     document.head.appendChild(style);
+  }
+
+  // ─── Override Expo's @font-face for Ionicons with CDN URL ───
+  // Expo/react-native-web injects @font-face with hashed local paths that don't
+  // exist on Netlify. This runs after a short delay to ensure Expo's declarations
+  // are already in the DOM, then appends ours LAST so it takes precedence.
+  const fontFixId = 'wss-ionicons-cdn-fix';
+  if (!document.getElementById(fontFixId)) {
+    const injectIoniconsCDN = () => {
+      // Remove previous injection if it exists, so we re-append at the END of <head>
+      const existing = document.getElementById(fontFixId);
+      if (existing) existing.remove();
+
+      const fontStyle = document.createElement('style');
+      fontStyle.id = fontFixId;
+      fontStyle.textContent = `
+        @font-face {
+          font-family: 'Ionicons';
+          src: url('https://unpkg.com/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf') format('truetype');
+          font-weight: normal;
+          font-style: normal;
+          font-display: swap;
+        }
+      `;
+      document.head.appendChild(fontStyle);
+    };
+    // Run immediately AND after a delay to ensure it comes AFTER Expo's runtime injection
+    injectIoniconsCDN();
+    setTimeout(injectIoniconsCDN, 1500);
   }
 }
 

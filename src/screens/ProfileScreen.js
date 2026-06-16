@@ -109,25 +109,35 @@ export default function ProfileScreen({ navigation }) {
 
   // Obsługa wylogowania
   const handleLogout = () => {
-    Alert.alert(
-      'Wyloguj się',
-      'Czy na pewno chcesz się wylogować?',
-      [
-        { text: 'Anuluj', style: 'cancel' },
-        {
-          text: 'Wyloguj',
-          style: 'destructive',
-          onPress: () => signOut(),  // z authService
-        },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      const confirmLogout = window.confirm('Czy na pewno chcesz się wylogować?');
+      if (confirmLogout) {
+        signOut();
+      }
+      return;
+    }
+    
+    setTimeout(() => {
+      Alert.alert(
+        'Wyloguj się',
+        'Czy na pewno chcesz się wylogować?',
+        [
+          { text: 'Anuluj', style: 'cancel' },
+          {
+            text: 'Wyloguj',
+            style: 'destructive',
+            onPress: () => signOut(),  // z authService
+          },
+        ]
+      );
+    }, 100);
   };
 
   // Renderowanie karty zapisanego miejsca
   const renderSavedSpot = (spot) => (
-    <TouchableOpacity 
-      key={spot.id} 
-      style={[styles.savedCard, { backgroundColor: colors.card }]} 
+    <TouchableOpacity
+      key={spot.id}
+      style={[styles.savedCard, { backgroundColor: colors.card }]}
       activeOpacity={0.7}
       onPress={() => navigation.navigate('SpotDetail', { spotId: spot.id })}
     >
@@ -168,8 +178,8 @@ export default function ProfileScreen({ navigation }) {
           size={20}
           color={
             activity.type === 'review' ? colors.primary :
-            activity.type === 'spot' ? colors.success :
-            colors.accent
+              activity.type === 'spot' ? colors.success :
+                colors.accent
           }
         />
       </View>
@@ -229,11 +239,11 @@ export default function ProfileScreen({ navigation }) {
           {/* Avatar i dane */}
           <View style={styles.profileInfo}>
             <View style={styles.avatarContainer}>
-              <Image 
-                source={{ 
-                  uri: userData?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || user?.email?.split('@')[0] || 'User')}&background=random&size=150` 
-                }} 
-                style={[styles.avatar, { borderColor: colors.accent }]} 
+              <Image
+                source={{
+                  uri: userData?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || user?.email?.split('@')[0] || 'User')}&background=random&size=150`
+                }}
+                style={[styles.avatar, { borderColor: colors.accent }]}
               />
             </View>
             <View style={styles.profileDetails}>
@@ -411,7 +421,7 @@ export default function ProfileScreen({ navigation }) {
 
         {/* Stopka */}
         <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: colors.textMuted }]}>WorkAndStudySpots v1.0.0</Text>
+          <Text style={[styles.footerText, { color: colors.textMuted }]}>WorkAndStudySpots v2.1.37</Text>
           <Text style={[styles.footerSubtext, { color: colors.textMuted }]}>
             Member since {userData?.createdAt?.toDate?.()?.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' }) || '—'}
           </Text>

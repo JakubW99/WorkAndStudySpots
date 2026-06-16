@@ -1,4 +1,4 @@
-# 📍 WorkAndStudySpots
+# WorkAndStudySpots
 
 Aplikacja mobilna pomagająca użytkownikom znajdować najlepsze miejsca do pracy i nauki — kawiarnie, biblioteki, przestrzenie coworkingowe i inne. Użytkownicy mogą przeglądać miejsca na mapie interaktywnej i liście, filtrować je po udogodnieniach (Wi-Fi, gniazdka, hałas), dodawać nowe lokalizacje oraz pisać recenzje.
 
@@ -7,7 +7,7 @@ Aplikacja mobilna pomagająca użytkownikom znajdować najlepsze miejsca do prac
 
 ---
 
-## 📸 Zrzuty ekranu aplikacji
+## Zrzuty ekranu aplikacji
 
 ### Autentykacja
 
@@ -53,7 +53,7 @@ Aplikacja mobilna pomagająca użytkownikom znajdować najlepsze miejsca do prac
 
 ---
 
-## 🎨 Techniki projektowania frontendowego
+## Techniki projektowania frontendowego
 
 ### Design System
 
@@ -93,7 +93,7 @@ export const COLORS = {
 
 ---
 
-## 🏗️ Struktura projektu
+## Struktura projektu
 
 ```
 WorkAndStudySpots/
@@ -148,7 +148,7 @@ WorkAndStudySpots/
 
 ---
 
-## 👥 Podział ról w zespole
+## Podział ról w zespole
 
 | Osoba | Rola | Zakres odpowiedzialności |
 |-------|------|--------------------------|
@@ -158,7 +158,7 @@ WorkAndStudySpots/
 
 ---
 
-## 📊 Firebase Analytics
+## Firebase Analytics
 
 Aplikacja jest wdrożona na **Netlify** (wersja webowa) i monitorowana przez **Google Analytics for Firebase**.
 
@@ -180,7 +180,7 @@ Aplikacja jest wdrożona na **Netlify** (wersja webowa) i monitorowana przez **G
 
 ---
 
-## 🔥 Hotjar Analytics
+## Hotjar Analytics
 
 Aplikacja jest również zintegrowana z narzędziem **Hotjar** w celu analizy zachowań użytkowników (m.in. heatmaps, nagrania sesji).
 
@@ -190,7 +190,7 @@ Aplikacja jest również zintegrowana z narzędziem **Hotjar** w celu analizy za
 
 ---
 
-## 🚀 Instrukcja uruchomienia
+## Instrukcja uruchomienia
 
 ### Wymagania
 
@@ -224,7 +224,7 @@ Plik `.env` z konfiguracją Firebase jest wymagany do działania backendu (auten
 
 ---
 
-## 🛠️ Technologie
+## Technologie
 
 | Technologia | Wersja | Zastosowanie |
 |-------------|--------|-------------|
